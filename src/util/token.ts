@@ -12,25 +12,29 @@ interface Payload {
   };
 }
 
+interface TokenResult {
+  appAccessToken: string | null;
+  appRefreshToken: string | null;
+}
+
 type Type = 'access' | 'refresh';
 
-module.exports = {
+export default {
   generateToken: (payload: Payload, checkedKeepLogin: boolean) => {
+    const result: TokenResult = {
+      appAccessToken: null,
+      appRefreshToken: null,
+    };
     if (APP_ACCESS_SECRET && APP_REFRESH_SECRET) {
-      const accessToken = sign(payload, APP_ACCESS_SECRET, { expiresIn: '1d' });
-      let refreshToken = null;
+      const appAccessToken = sign(payload, APP_ACCESS_SECRET, { expiresIn: '1d' });
+      let appRefreshToken = null;
       if (checkedKeepLogin) {
-        refreshToken = sign(payload, APP_REFRESH_SECRET, { expiresIn: '7d' });
+        appRefreshToken = sign(payload, APP_REFRESH_SECRET, { expiresIn: '7d' });
       }
-
-      const result = {
-        accessToken,
-        refreshToken,
-      };
-
-      return result;
+      result.appAccessToken = appAccessToken;
+      result.appRefreshToken = appRefreshToken;
     }
-    return null;
+    return result;
   },
   verifyToken: (type: Type, token: string) => {
     let secretKey, decoded;
@@ -49,7 +53,7 @@ module.exports = {
       if (secretKey) decoded = verify(token, secretKey);
       else throw 'no secret key';
     } catch (err) {
-      console.log(`JWT Error: ${err}`);
+      console.log(`verify app token error: ${err}`);
       return null;
     }
     return decoded;

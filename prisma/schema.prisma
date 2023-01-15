@@ -1,0 +1,26 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  kakaoId  BigInt @unique
+  kakaoAccessToken  String
+  kakaoRefreshToken  String
+  name     String?
+  card     Card[]
+}
+
+model Card {
+  id     Int    @id @default(autoincrement())
+  from   String
+  to     String
+  msg    String
+  User   User?  @relation(fields: [userId], references: [id])
+  userId Int?
+}

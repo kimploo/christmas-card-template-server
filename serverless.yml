@@ -1,0 +1,81 @@
+service: 'christmas-card-template-server'
+
+frameworkVersion: '3'
+useDotenv: true
+
+plugins:
+  - serverless-webpack
+  - serverless-offline
+  - serverless-webpack-prisma
+
+# package:
+  # patterns:
+  #   - '!node_modules/.prisma/client/libquery_engine-*'
+  #   - 'node_modules/.prisma/client/libquery_engine-rhel-*'
+  #   - '!node_modules/prisma/libquery_engine-*'
+  #   - '!node_modules/@prisma/engines/**'
+
+custom:
+  webpack:
+    webpackConfig: ./webpack.config.js
+    includeModules: true
+    packager: 'yarn'
+    excludeFiles: src/**/*.test.js
+    packagerOptions:
+      scripts:
+        - prisma generate
+
+provider:
+  name: aws
+  stage: prod
+  runtime: 'nodejs16.x'
+  timeout: 10
+  region: 'ap-northeast-2'
+  deploymentBucket:
+    name: christmas-card-template-server-bucket
+  apiGateway:
+    minimumCompressionSize: 1024
+    shouldStartNameWithService: true
+  environment:
+    AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1'
+    KAKAO_REST_API_KEY: ${env:KAKAO_REST_API_KEY}
+    DATABASE_URL: ${env:DATABASE_URL}
+  iam:
+    role:
+      statements:
+        - Effect: 'Allow'
+          Action:
+            - 's3:getObject'
+          Resource: 'arn:aws:s3:::christmas-card-template-server-bucket'
+        - Effect: 'Allow'
+          Action:
+            - 'sts:AssumeRole'
+          Resource: 'arn:aws:sts:::assumed-role/*'
+  httpApi:
+    cors:
+      allowedOrigins:
+        - 'http://localhost:5173'
+        - 'https://localhost:5173'
+        - 'https://hyodee.card.surge.sh'
+      allowedMethods:
+        - GET
+        - OPTIONS
+        - POST
+        - PUT
+        - DELETE
+      allowedHeaders:
+        - Content-Type
+        - X-Amz-Date
+        - Authorization
+        - X-Api-Key
+        - X-Amz-Security-Token
+        - X-Amz-User-Agent
+        - X-Transaction-Key
+        - Access-Control-Allow-Origin
+      allowCredentials: false
+
+functions:
+  api:
+    handler: src/handler.handler
+    events:
+      - httpApi: '*'
