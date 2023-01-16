@@ -7,7 +7,7 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { PrismaClient } from '@prisma/client';
 
-import { authRouter, cardRouter } from './router';
+import { authRouter, cardRouter, loginRouter, logoutRouter } from './router';
 import { KakaoUserInfo } from '@customType/kakaoRes';
 import { authFunc } from './middleware/auth';
 
@@ -29,6 +29,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms'));
 
+app.use('/login', loginRouter);
+app.use('/logout', logoutRouter);
 app.use('/auth', authRouter);
 app.use('/card', authFunc, cardRouter);
 
