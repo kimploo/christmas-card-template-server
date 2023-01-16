@@ -72,7 +72,7 @@ provider:
         - X-Amz-User-Agent
         - X-Transaction-Key
         - Access-Control-Allow-Origin
-      allowCredentials: false
+      allowCredentials: true
 
 functions:
   api:
