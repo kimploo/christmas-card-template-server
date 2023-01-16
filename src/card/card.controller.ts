@@ -1,4 +1,5 @@
 import { Card, PrismaClient } from '@prisma/client';
+import token from '@util/token';
 import { Request, Response } from 'express';
 const prisma = new PrismaClient();
 
@@ -33,19 +34,35 @@ export default {
   },
 
   createOne: async (req: Request, res: Response) => {
-    const { data } = req.body;
+    const refreshToken = req.cookies['refresh_jwt'];
+    const decoded = token.verifyToken('refresh', refreshToken);
+    if (!decoded || typeof decoded === 'string') {
+      return res.status(401).json('not authorized');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: {
+        kakaoId: decoded?.id,
+      },
+    });
+
+    if (!user) {
+      return res.status(401).json('not authorized');
+    }
 
     let card: Card | null;
     try {
       card = await prisma.card.create({
         data: {
-          from: data.from,
-          to: data.to,
-          msg: data.msg,
-          userId: data.userId,
+          from: req.body.from,
+          to: req.body.to,
+          msg: req.body.msg,
+          artwork: req.body.artwork,
+          userId: user.id,
         },
       });
     } catch (e) {
+      console.error(e);
       return res.status(400).json(e);
     }
 
