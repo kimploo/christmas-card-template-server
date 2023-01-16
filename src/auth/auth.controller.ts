@@ -10,29 +10,35 @@ import { KakaoTokenRes, KakaoUserInfo } from '@customType/kakaoRes';
 
 const prisma = new PrismaClient();
 const isDev = process.env.IS_OFFLINE;
-const { KAKAO_REST_API_KEY } = process.env;
+const { KAKAO_REST_API_KEY, CLIENT_URI_DEV, CLIENT_URI_PROD } = process.env;
 
 export default {
   login: async (req: Request, res: Response) => {
-    // const body = req.body;
-    // const redirect_uri = isDev
-    //   ? 'http://localhost:3000/auth'
-    //   : 'https://6ellivwb08.execute-api.ap-northeast-2.amazonaws.com/auth';
-    // const url = new URL('https://kauth.kakao.com/oauth/authorize');
-    // url.pathname = qs.stringify({
-    //   response_type: 'code',
-    //   client_id: KAKAO_REST_API_KEY,
-    //   redirect_uri,
-    // });
-    // console.log(url.toString());
-    // let kakaoRes;
-    // try {
-    //   kakaoRes = await axios.get(url.toString());
-    // } catch (e) {
-    //   console.error('Error', e);
-    //   return res.status(400).json(e);
-    // }
-    // console.log('kakaoRes', kakaoRes);
+    const refreshToken = req.cookies['refresh_jwt'];
+    const decoded = token.verifyToken('refresh', refreshToken);
+    if (!decoded || typeof decoded === 'string') {
+      return res.status(401).json('not authorized');
+    }
+    return res.status(200).json(decoded);
+  },
+
+  logout: async (req: Request, res: Response) => {
+    const refreshToken = req.cookies['refresh_jwt'];
+    if (refreshToken) {
+      res.clearCookie('refresh_jwt', {
+        domain: 'localhost',
+        path: '/',
+        sameSite: 'none',
+        secure: true,
+      });
+    }
+    res.clearCookie('access_jwt', {
+      domain: 'localhost',
+      path: '/',
+      sameSite: 'none',
+      secure: true,
+    });
+    return res.status(205).send('Logged Out Successfully');
   },
 
   auth: async (req: Request, res: Response) => {
@@ -40,7 +46,7 @@ export default {
     const redirect_uri = isDev
       ? 'http://localhost:3000/auth'
       : 'https://6ellivwb08.execute-api.ap-northeast-2.amazonaws.com/auth';
-    const client_redirect_url = isDev ? 'https://localhost:5173' : '';
+    const client_redirect_url = isDev ? CLIENT_URI_DEV : CLIENT_URI_PROD;
     console.log('code?', code);
     console.log('kakao?', KAKAO_REST_API_KEY);
 
@@ -131,6 +137,28 @@ export default {
       // Expires 옵션이 없는 Session Cookie
     });
 
-    return res.redirect(client_redirect_url + '/preview');
+    return res.redirect(client_redirect_url);
+  },
+
+  loginOld: async (req: Request, res: Response) => {
+    // const body = req.body;
+    // const redirect_uri = isDev
+    //   ? 'http://localhost:3000/auth'
+    //   : 'https://6ellivwb08.execute-api.ap-northeast-2.amazonaws.com/auth';
+    // const url = new URL('https://kauth.kakao.com/oauth/authorize');
+    // url.pathname = qs.stringify({
+    //   response_type: 'code',
+    //   client_id: KAKAO_REST_API_KEY,
+    //   redirect_uri,
+    // });
+    // console.log(url.toString());
+    // let kakaoRes;
+    // try {
+    //   kakaoRes = await axios.get(url.toString());
+    // } catch (e) {
+    //   console.error('Error', e);
+    //   return res.status(400).json(e);
+    // }
+    // console.log('kakaoRes', kakaoRes);
   },
 };
