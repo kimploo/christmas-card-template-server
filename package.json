@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "serverless offline",
     "sls-deploy": "serverless deploy",
+    "sls-remove": "serverless remove",
     "db-migrate": "npx prisma migrate dev",
     "db-reset": "npx prisma migrate reset",
     "db-deploy": "npx prisma migrate deploy",
@@ -41,6 +42,7 @@
     "prettier": "^2.8.0",
     "prisma": "^4.6.1",
     "serverless": "^3.25.0",
+    "serverless-certificate-creator": "^1.6.0",
     "serverless-domain-manager": "^6.2.1",
     "serverless-offline": "^11.6.0",
     "serverless-webpack": "^5.11.0",

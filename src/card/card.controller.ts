@@ -66,7 +66,9 @@ export default {
       return res.status(400).json(e);
     }
 
-    return res.status(201).json('created');
+    return res.status(201).json({
+      id: card.id,
+    });
   },
 
   updateOne: async (req: Request, res: Response) => {

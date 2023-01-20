@@ -1,6 +1,7 @@
 import express from 'express';
 import authController from '@auth/auth.controller';
 import cardController from './card/card.controller';
+import { authFunc } from './middleware/auth';
 
 const loginRouter = express.Router();
 const logoutRouter = express.Router();
@@ -11,10 +12,10 @@ const cardRouter = express.Router();
 loginRouter.get('/', authController.login);
 logoutRouter.post('/', authController.logout);
 authRouter.get('/', authController.auth);
-cardRouter.get('/', cardController.findMany);
+cardRouter.get('/', authFunc, cardController.findMany);
 cardRouter.get('/:id', cardController.findOne);
-cardRouter.post('/', cardController.createOne);
-cardRouter.put('/:id', cardController.updateOne);
-cardRouter.delete('/:id', cardController.deleteOne);
+cardRouter.post('/', authFunc, cardController.createOne);
+cardRouter.put('/:id', authFunc, cardController.updateOne);
+cardRouter.delete('/:id', authFunc, cardController.deleteOne);
 
 export { authRouter, cardRouter, loginRouter, logoutRouter };

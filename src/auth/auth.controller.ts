@@ -2,15 +2,13 @@ import axios from 'axios';
 import qs from 'qs';
 import { PrismaClient } from '@prisma/client';
 import { Request, Response } from 'express';
-import { URL } from 'url';
-import { join } from 'path';
 
 import token from '@util/token';
 import { KakaoTokenRes, KakaoUserInfo } from '@customType/kakaoRes';
 
 const prisma = new PrismaClient();
 const isDev = process.env.IS_OFFLINE;
-const { KAKAO_REST_API_KEY, CLIENT_URI_DEV, CLIENT_URI_PROD } = process.env;
+const { KAKAO_REST_API_KEY, CLIENT_URI_DEV, CLIENT_URI_PROD, SERVER_URI_DEV, SERVER_URI_PROD } = process.env;
 
 export default {
   login: async (req: Request, res: Response) => {
@@ -26,14 +24,14 @@ export default {
     const refreshToken = req.cookies['refresh_jwt'];
     if (refreshToken) {
       res.clearCookie('refresh_jwt', {
-        domain: 'localhost',
+        domain: 'teamhh.link',
         path: '/',
         sameSite: 'none',
         secure: true,
       });
     }
     res.clearCookie('access_jwt', {
-      domain: 'localhost',
+      domain: 'teamhh.link',
       path: '/',
       sameSite: 'none',
       secure: true,
@@ -42,13 +40,16 @@ export default {
   },
 
   auth: async (req: Request, res: Response) => {
+    if (!KAKAO_REST_API_KEY || !CLIENT_URI_DEV || !CLIENT_URI_PROD || !SERVER_URI_DEV || !SERVER_URI_PROD)
+      throw new Error('should set env');
+
     const code = req.query.code;
-    const redirect_uri = isDev
-      ? 'http://localhost:3000/auth'
-      : 'https://6ellivwb08.execute-api.ap-northeast-2.amazonaws.com/auth';
+    const redirect_uri = isDev ? new URL('/auth', SERVER_URI_DEV).href : new URL('/auth', SERVER_URI_PROD).href;
     const client_redirect_url = isDev ? CLIENT_URI_DEV : CLIENT_URI_PROD;
+
     console.log('code?', code);
     console.log('kakao?', KAKAO_REST_API_KEY);
+    console.log('redirect_uri?', redirect_uri);
 
     // 카카오 인증 서버에서 받은 code로 토큰 생성
     let kakaoRes: KakaoTokenRes;
@@ -121,7 +122,7 @@ export default {
     const { appAccessToken, appRefreshToken } = token.generateToken(kakaoUserInfo, true);
 
     res.cookie('refresh_jwt', appRefreshToken, {
-      domain: 'localhost',
+      domain: 'teamhh.link',
       path: '/',
       sameSite: 'none',
       httpOnly: true,
@@ -129,7 +130,7 @@ export default {
       expires: new Date(Date.now() + 24 * 3600 * 1000 * 7), // 7일 후 소멸되는 Persistent Cookie
     });
     res.cookie('access_jwt', appAccessToken, {
-      domain: 'localhost',
+      domain: 'teamhh.link',
       path: '/',
       sameSite: 'none',
       httpOnly: true,

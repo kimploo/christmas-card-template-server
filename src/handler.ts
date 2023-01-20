@@ -15,9 +15,14 @@ const prisma = new PrismaClient();
 dotenv.config();
 const app = express();
 
+const isDev = process.env.IS_OFFLINE;
+const corsOrigin = isDev
+  ? ['http://localhost:5173', 'https://localhost:5173']
+  : ['https://hyodee-card.surge.sh', /\.teamhh\.link$/];
+
 app.use(
   cors({
-    origin: ['http://localhost:5173', 'https://localhost:5173', 'https://hyodee.card.surge.sh'],
+    origin: corsOrigin,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     preflightContinue: false,
     optionsSuccessStatus: 204,
@@ -32,7 +37,7 @@ app.use(morgan(':method :url :status :res[content-length] - :response-time ms'))
 app.use('/login', loginRouter);
 app.use('/logout', logoutRouter);
 app.use('/auth', authRouter);
-app.use('/card', authFunc, cardRouter);
+app.use('/card', cardRouter);
 
 app.get('/', (_, res) => {
   return res.status(200).json({
