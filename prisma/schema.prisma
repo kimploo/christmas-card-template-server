@@ -11,9 +11,9 @@ datasource db {
 model User {
   id       Int     @id @default(autoincrement())
   kakaoId  BigInt @unique
-  kakaoAccessToken  String?
+  kakaoAccessToken  String? @unique
   kakaoAccessTokenExpiresOn  DateTime?
-  kakaoRefreshToken  String?
+  kakaoRefreshToken  String? @unique
   kakaoRefreshTokenExpiresOn  DateTime?
   name     String?
   card     Card[]
