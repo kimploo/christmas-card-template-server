@@ -21,6 +21,8 @@ model User {
 
 model Card {
   id     Int    @id @default(autoincrement())
+  createdAt DateTime
+  updatedAt DateTime?
   from   String
   to     String
   msg    String

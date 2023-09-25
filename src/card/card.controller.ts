@@ -59,6 +59,7 @@ export default {
           msg: req.body.msg,
           artwork: req.body.artwork,
           userId: user.id,
+          createdAt: new Date(),
         },
       });
     } catch (e) {
@@ -80,6 +81,7 @@ export default {
         where: { id: cardId },
         data: {
           ...data,
+          updatedAt: new Date(),
         },
       });
     } catch (e) {
