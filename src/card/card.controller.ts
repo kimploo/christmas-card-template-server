@@ -26,9 +26,9 @@ export default {
   },
 
   findOne: async (req: Request, res: Response) => {
-    const id = Number(req.params.id);
+    const uuid = req.params.uuid;
     const result = await prisma.card.findUnique({
-      where: { id },
+      where: { uuid },
     });
     return res.json(result);
   },
@@ -68,7 +68,7 @@ export default {
     }
 
     return res.status(201).json({
-      id: card.id,
+      uuid: card.uuid,
     });
   },
 

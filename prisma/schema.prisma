@@ -21,6 +21,7 @@ model User {
 
 model Card {
   id     Int    @id @default(autoincrement())
+  uuid     String?  @unique @default(uuid())
   createdAt DateTime
   updatedAt DateTime?
   from   String
