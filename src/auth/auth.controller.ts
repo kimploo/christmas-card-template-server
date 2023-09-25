@@ -4,8 +4,9 @@ import { PrismaClient, User } from '@prisma/client';
 import { Request, Response } from 'express';
 
 import token from '@util/token';
-import { KakaoLogoutSuccessRes, KakaoLogoutUnauthorizedRes, KakaoTokenRes, KakaoUserInfo } from '@customType/kakaoRes';
+import { KakaoTokenRes, KakaoUserInfo } from '@customType/kakaoRes';
 import { add } from 'date-fns';
+import { kakaoTokenRefreshRes } from './auth.type';
 
 const prisma = new PrismaClient();
 const isDev = process.env.IS_OFFLINE;
@@ -15,26 +16,130 @@ const { KAKAO_REST_API_KEY, CLIENT_URI_DEV, CLIENT_URI_PROD, SERVER_URI_DEV, SER
 export default {
   login: async (req: Request, res: Response) => {
     // cct 서버의 토큰이 적절하지 않을 때
-    const refreshToken = req.cookies['refresh_jwt'];
+    const serviceRefreshToken = req.cookies['refresh_jwt'];
     console.log(req.cookies);
-    const decoded = token.verifyToken('refresh', refreshToken);
+    const decoded = token.verifyToken('refresh', serviceRefreshToken);
     if (!decoded || typeof decoded === 'string') {
       return res.status(401).json('not authorized');
     }
-    return res.status(200).json(decoded);
+
+    // 카카오 refreshToken으로 유저 확인
+    const oldRefreshToken = decoded.refresh_token;
+    let user: User | null;
+    try {
+      user = await prisma.user.findUnique({
+        where: {
+          kakaoRefreshToken: oldRefreshToken,
+        },
+      });
+      if (!user) {
+        throw new Error('user not found');
+      }
+    } catch (e) {
+      console.error('유저 토큰 find 에러', e);
+      return res.status(400).json(e);
+    }
+
+    // 카카오 토큰 재발행
+    let kakaoTokenRefreshRes: kakaoTokenRefreshRes;
+    try {
+      kakaoTokenRefreshRes = (
+        await axios({
+          url: 'https://kauth.kakao.com/oauth/token',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+          },
+          data: qs.stringify({
+            grant_type: 'refresh_token',
+            client_id: KAKAO_REST_API_KEY,
+            refresh_token: oldRefreshToken,
+          }),
+        })
+      ).data;
+    } catch (e) {
+      console.error('유저 토큰 재발행 에러', e);
+      return res.status(400).json(e);
+    }
+
+    const { access_token, expires_in, refresh_token, refresh_token_expires_in } = kakaoTokenRefreshRes;
+    const isRefreshed = Boolean(refresh_token);
+    console.log('kakaoTokenRefreshRes', kakaoTokenRefreshRes);
+
+    // 카카오 유저 정보 재확인
+    let kakaoUserInfo: KakaoUserInfo;
+    try {
+      kakaoUserInfo = (
+        await axios({
+          url: 'https://kapi.kakao.com/v2/user/me',
+          method: 'GET',
+          headers: { Authorization: `Bearer ${access_token}` },
+        })
+      ).data;
+    } catch (e) {
+      console.error('사용자 정보 받기 에러', e);
+      return res.status(400).json(e);
+    }
+    console.log('여기가 id값이 바뀐다구요 ..?', kakaoUserInfo);
+
+    // 토큰 갱신
+    try {
+      user = await prisma.user.update({
+        where: {
+          kakaoId: kakaoUserInfo.id,
+        },
+        data: {
+          kakaoAccessToken: access_token,
+          kakaoAccessTokenExpiresOn: add(new Date(), { seconds: expires_in }),
+          kakaoRefreshToken: !isRefreshed ? undefined : refresh_token,
+          kakaoRefreshTokenExpiresOn: !isRefreshed ? undefined : add(new Date(), { seconds: refresh_token_expires_in }),
+        },
+      });
+    } catch (e) {
+      console.error('유저 생성 에러', e);
+      return res.status(400).json(e);
+    }
+
+    // access 토큰은 Authorization 헤더로, refresh 토큰은 쿠키로 돌려준다.
+    console.log('왜 자꾸 리프레시가 undefined..', refresh_token, user);
+    const resCookie = {
+      ...kakaoUserInfo,
+      refresh_token: isRefreshed ? refresh_token : user.kakaoRefreshToken,
+    };
+
+    const resBody = {
+      ...kakaoUserInfo,
+      access_token,
+    };
+
+    // 서비스 앱의 토큰 생성 및 전달
+    const { appRefreshToken } = token.generateToken(resCookie, true);
+    console.log('여기서 리프레시 토큰이 갑자기 빠진다구요..?', resCookie, resBody, appRefreshToken);
+
+    res.cookie('refresh_jwt', appRefreshToken, {
+      domain,
+      path: '/',
+      sameSite: 'none',
+      httpOnly: true,
+      secure: true,
+      expires: new Date(Date.now() + 24 * 3600 * 1000 * 7), // 7일 후 소멸되는 Persistent Cookie
+    });
+
+    return res.status(200).json(resBody);
   },
 
   logout: async (req: Request, res: Response) => {
-    const refreshToken = req.cookies['refresh_jwt'];
-    const decoded = token.verifyToken('refresh', refreshToken);
+    const cookie = req.cookies['refresh_jwt'];
+    const decoded = token.verifyToken('refresh', cookie);
     if (!decoded || typeof decoded === 'string') {
       return res.status(401).json('not authorized');
     }
 
-    // 유저의 억세스 토큰을 찾는다.
+    // 카카오 refreshToken으로 유저 확인
+    const refreshToken = decoded.refresh_token;
     let user: User | null;
     try {
-      user = await prisma.user.findFirst({
+      user = await prisma.user.findUnique({
         where: {
           kakaoRefreshToken: refreshToken,
         },
@@ -44,7 +149,25 @@ export default {
       return res.status(400).json(e);
     }
     const access_token = user?.kakaoAccessToken;
-    let kakaoId = user?.kakaoId;
+
+    // 카카오 유저 정보 재확인
+    let kakaoUserInfo: KakaoUserInfo;
+    try {
+      kakaoUserInfo = (
+        await axios({
+          url: 'https://kapi.kakao.com/v2/user/me',
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+            Authorization: `Bearer ${access_token}`,
+          },
+        })
+      ).data;
+    } catch (e) {
+      console.error('사용자 정보 받기 에러', e);
+      return res.status(400).json(e);
+    }
+    console.log('여기가 id값이 바뀐다구요 ..? 로그아웃', kakaoUserInfo);
     console.log('logout find user', user);
 
     let kakaoLogoutRes = await axios({
@@ -56,12 +179,14 @@ export default {
       },
     })
       .then((res) => {
+        console.log(res.data);
         return res.data;
       })
       .catch((e) => {
         console.error('카카오 로그아웃', e);
       });
-    kakaoId = kakaoLogoutRes ? kakaoLogoutRes.id : kakaoId;
+
+    const kakaoId = kakaoUserInfo.id;
     console.log('kakaoId', kakaoId?.toString());
 
     try {
@@ -72,6 +197,8 @@ export default {
         data: {
           kakaoAccessToken: null,
           kakaoRefreshToken: null,
+          kakaoAccessTokenExpiresOn: null,
+          kakaoRefreshTokenExpiresOn: null,
         },
       });
       console.log('user update ?', user);
@@ -88,12 +215,6 @@ export default {
         secure: true,
       });
     }
-    res.clearCookie('access_jwt', {
-      domain,
-      path: '/',
-      sameSite: 'none',
-      secure: true,
-    });
     return res.status(205).send('Logged Out Successfully');
   },
 
@@ -148,19 +269,20 @@ export default {
       return res.status(400).json(e);
     }
 
+    console.log('check kakaoid', kakaoUserInfo);
     // 카카오 ID와 일치하는 유저가 있는지 찾기
     // TODO: 삭제해도 무방한 로직으로 보임
     let user;
-    try {
-      user = await prisma.user.findUnique({
-        where: {
-          kakaoId: kakaoUserInfo.id,
-        },
-      });
-    } catch (e) {
-      console.error('유저 조회 에러', e);
-      return res.status(400).json(e);
-    }
+    // try {
+    //   user = await prisma.user.findUnique({
+    //     where: {
+    //       kakaoId: kakaoUserInfo.id,
+    //     },
+    //   });
+    // } catch (e) {
+    //   console.error('유저 조회 에러', e);
+    //   return res.status(400).json(e);
+    // }
 
     // 카카오 ID와 일치하는 유저가 없으면 생성하고 있으면 토큰 갱신 (회원가입)
     try {
@@ -187,13 +309,13 @@ export default {
       return res.status(400).json(e);
     }
 
-    const tokenResponse = {
+    const cookieResponse = {
       ...kakaoUserInfo,
       refresh_token,
     };
 
     // 서비스 앱의 토큰 생성 및 전달
-    const { appAccessToken, appRefreshToken } = token.generateToken(tokenResponse, true);
+    const { appRefreshToken } = token.generateToken(cookieResponse, true);
 
     res.cookie('refresh_jwt', appRefreshToken, {
       domain,
@@ -203,38 +325,8 @@ export default {
       secure: true,
       expires: new Date(Date.now() + 24 * 3600 * 1000 * 7), // 7일 후 소멸되는 Persistent Cookie
     });
-    res.cookie('access_jwt', appAccessToken, {
-      domain,
-      path: '/',
-      sameSite: 'none',
-      httpOnly: true,
-      secure: true,
-      // Expires 옵션이 없는 Session Cookie
-    });
 
-    const redirectUrl = new URL(client_redirect_url).href;
-    return res.redirect(redirectUrl);
-  },
-
-  loginOld: async (req: Request, res: Response) => {
-    // const body = req.body;
-    // const redirect_uri = isDev
-    //   ? 'http://localhost:3000/auth'
-    //   : 'https://6ellivwb08.execute-api.ap-northeast-2.amazonaws.com/auth';
-    // const url = new URL('https://kauth.kakao.com/oauth/authorize');
-    // url.pathname = qs.stringify({
-    //   response_type: 'code',
-    //   client_id: KAKAO_REST_API_KEY,
-    //   redirect_uri,
-    // });
-    // console.log(url.toString());
-    // let kakaoRes;
-    // try {
-    //   kakaoRes = await axios.get(url.toString());
-    // } catch (e) {
-    //   console.error('Error', e);
-    //   return res.status(400).json(e);
-    // }
-    // console.log('kakaoRes', kakaoRes);
+    const clientRedirectUrl = new URL(client_redirect_url).href;
+    return res.redirect(clientRedirectUrl);
   },
 };
