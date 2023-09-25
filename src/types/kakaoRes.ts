@@ -1,3 +1,12 @@
+export interface KakaoLogoutSuccessRes {
+  id: bigint;
+}
+
+export interface KakaoLogoutUnauthorizedRes {
+  msg: string;
+  code: number;
+}
+
 export interface KakaoTokenRes {
   token_type: 'bearer';
   access_token: string;

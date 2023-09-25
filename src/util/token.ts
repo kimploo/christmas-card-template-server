@@ -20,7 +20,7 @@ interface TokenResult {
 type Type = 'access' | 'refresh';
 
 export default {
-  generateToken: (payload: Payload, checkedKeepLogin: boolean) => {
+  generateToken: (payload: any, checkedKeepLogin: boolean) => {
     const result: TokenResult = {
       appAccessToken: null,
       appRefreshToken: null,
@@ -48,6 +48,7 @@ export default {
       default:
         return null;
     }
+    console.log('verifyToken', type, token);
 
     try {
       if (secretKey) decoded = verify(token, secretKey);
