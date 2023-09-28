@@ -2,16 +2,13 @@ import serverless from 'serverless-http';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
-import axios from 'axios';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import { PrismaClient } from '@prisma/client';
 
 import { authRouter, cardRouter, loginRouter, logoutRouter } from './router';
-import { KakaoUserInfo } from '@customType/kakaoRes';
-import { authFunc } from './middleware/auth';
+import cookieUtil from './util/cookie';
 
-const prisma = new PrismaClient();
 dotenv.config();
 const app = express();
 
@@ -46,6 +43,7 @@ app.get('/', (_, res) => {
 });
 
 app.use((_, res) => {
+  cookieUtil.clear(res);
   return res.status(404).json({
     error: 'Not Found',
   });

@@ -7,6 +7,7 @@ import token from '@util/token';
 import { KakaoTokenRes, KakaoUserInfo } from '@customType/kakaoRes';
 import { add } from 'date-fns';
 import { kakaoTokenRefreshRes } from './auth.type';
+import cookieUtil from '../util/cookie';
 
 const prisma = new PrismaClient();
 const isDev = process.env.IS_OFFLINE;
@@ -20,6 +21,7 @@ export default {
     console.log(req.cookies);
     const decoded = token.verifyToken('refresh', serviceRefreshToken);
     if (!decoded || typeof decoded === 'string') {
+      cookieUtil.clear(res);
       return res.status(401).json('not authorized');
     }
 
@@ -208,12 +210,7 @@ export default {
     }
 
     if (refreshToken) {
-      res.clearCookie('refresh_jwt', {
-        domain,
-        path: '/',
-        sameSite: 'none',
-        secure: true,
-      });
+      cookieUtil.clear(res);
     }
     return res.status(205).send('Logged Out Successfully');
   },

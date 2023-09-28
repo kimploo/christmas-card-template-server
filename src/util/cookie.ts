@@ -1,3 +1,8 @@
+import { Response } from 'express';
+
+const isDev = process.env.IS_OFFLINE;
+const defaultDomain = isDev ? 'localhost' : 'teamhh.link';
+
 export default {
   bake: (domain: string, expires: Date) => {
     if (expires) {
@@ -18,5 +23,14 @@ export default {
       secure: true,
       // Expires 옵션이 없는 Session Cookie
     };
+  },
+  clear: (res: Response, domain = defaultDomain) => {
+    res.clearCookie('refresh_jwt', {
+      domain,
+      path: '/',
+      sameSite: 'none',
+      secure: true,
+    });
+    return res;
   },
 };
