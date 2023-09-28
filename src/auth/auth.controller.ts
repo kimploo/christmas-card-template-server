@@ -270,20 +270,7 @@ export default {
     }
 
     console.log('check kakaoid', kakaoUserInfo);
-    // 카카오 ID와 일치하는 유저가 있는지 찾기
-    // TODO: 삭제해도 무방한 로직으로 보임
     let user;
-    // try {
-    //   user = await prisma.user.findUnique({
-    //     where: {
-    //       kakaoId: kakaoUserInfo.id,
-    //     },
-    //   });
-    // } catch (e) {
-    //   console.error('유저 조회 에러', e);
-    //   return res.status(400).json(e);
-    // }
-
     // 카카오 ID와 일치하는 유저가 없으면 생성하고 있으면 토큰 갱신 (회원가입)
     try {
       user = await prisma.user.upsert({

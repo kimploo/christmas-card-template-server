@@ -10,6 +10,8 @@ datasource db {
 
 model User {
   id       Int     @id @default(autoincrement())
+  createdAt DateTime?
+  updatedAt DateTime? 
   kakaoId  BigInt @unique
   kakaoAccessToken  String? @unique
   kakaoAccessTokenExpiresOn  DateTime?
