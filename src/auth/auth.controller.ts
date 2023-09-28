@@ -279,12 +279,15 @@ export default {
         },
         create: {
           kakaoId: kakaoUserInfo.id,
+          createdAt: new Date(),
+          updatedAt: new Date(),
           kakaoAccessToken: access_token,
           kakaoAccessTokenExpiresOn: add(new Date(), { seconds: expires_in }),
           kakaoRefreshToken: refresh_token,
           kakaoRefreshTokenExpiresOn: add(new Date(), { seconds: refresh_token_expires_in }),
         },
         update: {
+          updatedAt: new Date(),
           kakaoAccessToken: access_token,
           kakaoAccessTokenExpiresOn: add(new Date(), { seconds: expires_in }),
           kakaoRefreshToken: refresh_token,
