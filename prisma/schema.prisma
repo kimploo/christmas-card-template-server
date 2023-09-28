@@ -10,15 +10,22 @@ datasource db {
 
 model User {
   id       Int     @id @default(autoincrement())
+  createdAt DateTime
+  updatedAt DateTime? 
   kakaoId  BigInt @unique
-  kakaoAccessToken  String
-  kakaoRefreshToken  String
+  kakaoAccessToken  String? @unique
+  kakaoAccessTokenExpiresOn  DateTime?
+  kakaoRefreshToken  String? @unique
+  kakaoRefreshTokenExpiresOn  DateTime?
   name     String?
   card     Card[]
 }
 
 model Card {
   id     Int    @id @default(autoincrement())
+  uuid     String?  @unique @default(uuid())
+  createdAt DateTime
+  updatedAt DateTime?
   from   String
   to     String
   msg    String

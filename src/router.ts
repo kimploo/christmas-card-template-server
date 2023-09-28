@@ -13,7 +13,7 @@ loginRouter.get('/', authController.login);
 logoutRouter.post('/', authController.logout);
 authRouter.get('/', authController.auth);
 cardRouter.get('/', authFunc, cardController.findMany);
-cardRouter.get('/:id', cardController.findOne);
+cardRouter.get('/:uuid', cardController.findOne);
 cardRouter.post('/', authFunc, cardController.createOne);
 cardRouter.put('/:id', authFunc, cardController.updateOne);
 cardRouter.delete('/:id', authFunc, cardController.deleteOne);
