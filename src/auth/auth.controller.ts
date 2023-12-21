@@ -91,6 +91,7 @@ export default {
           kakaoId: kakaoUserInfo.id,
         },
         data: {
+          name: kakaoUserInfo.properties.nickname,
           kakaoAccessToken: access_token,
           kakaoAccessTokenExpiresOn: add(new Date(), { seconds: expires_in }),
           kakaoRefreshToken: !isRefreshed ? undefined : refresh_token,
@@ -199,6 +200,7 @@ export default {
         data: {
           kakaoAccessToken: null,
           kakaoRefreshToken: null,
+          name: kakaoUserInfo.properties.nickname,
           kakaoAccessTokenExpiresOn: null,
           kakaoRefreshTokenExpiresOn: null,
         },
@@ -276,6 +278,7 @@ export default {
         },
         create: {
           kakaoId: kakaoUserInfo.id,
+          name: kakaoUserInfo.properties.nickname,
           createdAt: new Date(),
           updatedAt: new Date(),
           kakaoAccessToken: access_token,
@@ -285,6 +288,7 @@ export default {
         },
         update: {
           updatedAt: new Date(),
+          name: kakaoUserInfo.properties.nickname,
           kakaoAccessToken: access_token,
           kakaoAccessTokenExpiresOn: add(new Date(), { seconds: expires_in }),
           kakaoRefreshToken: refresh_token,
