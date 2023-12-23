@@ -104,9 +104,10 @@ provider:
         - X-Amz-Security-Token
         - X-Amz-User-Agent
         - X-Transaction-Key
-        - Access-Control-Allow-Origin
+        - Range
+        - baggage
+        - sentry-trace
       allowCredentials: true
-
 functions:
   api:
     handler: src/handler.handler
