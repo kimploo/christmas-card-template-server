@@ -2,13 +2,15 @@ import { PrismaClient, User } from '@prisma/client';
 const prisma = new PrismaClient();
 import { RequestHandler } from 'express';
 import token from '@util/token';
+import cookieUtil from '../util/cookie';
 
 export const authFunc: RequestHandler = async (req, res, next) => {
-  const cookie = req.cookies['refresh_jwt'];
+  const cookie = req.cookies['access_jwt'];
 
   // 토큰 검증
   const decoded = token.verifyToken('refresh', cookie);
   if (!decoded || typeof decoded === 'string') {
+    cookieUtil.clear(res);
     return res.status(401).json('not authorized');
   }
 
