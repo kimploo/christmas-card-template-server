@@ -51,7 +51,7 @@ custom:
 provider:
   name: aws
   stage: prod
-  runtime: 'nodejs16.x'
+  runtime: 'nodejs18.x'
   timeout: 10
   region: 'ap-northeast-2'
   stackName: cct-server-seoul-stack

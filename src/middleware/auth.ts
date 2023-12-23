@@ -5,7 +5,7 @@ import token from '@util/token';
 import cookieUtil from '../util/cookie';
 
 export const authFunc: RequestHandler = async (req, res, next) => {
-  const cookie = req.cookies['access_jwt'];
+  const cookie = req.cookies['refresh_jwt'];
 
   // 토큰 검증
   const decoded = token.verifyToken('refresh', cookie);
