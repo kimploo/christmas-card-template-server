@@ -3,6 +3,14 @@ const prisma = new PrismaClient();
 import { RequestHandler } from 'express';
 import token from '@util/token';
 import cookieUtil from '../util/cookie';
+import { kakaoTokenRefreshRes } from '@auth/auth.type';
+import axios from 'axios';
+import qs from 'qs';
+import { KakaoUserInfo } from '@customType/kakaoRes';
+import { add } from 'date-fns';
+
+const isDev = process.env.IS_OFFLINE;
+const { KAKAO_REST_API_KEY } = process.env;
 
 export const authFunc: RequestHandler = async (req, res, next) => {
   const cookie = req.cookies['refresh_jwt'];
@@ -15,12 +23,12 @@ export const authFunc: RequestHandler = async (req, res, next) => {
   }
 
   // 카카오 refreshToken으로 유저 확인
-  const refreshToken = decoded.refresh_token;
+  const oldRefreshToken = decoded.refresh_token;
   let user: User | null;
   try {
     user = await prisma.user.findFirst({
       where: {
-        kakaoRefreshToken: refreshToken,
+        kakaoRefreshToken: oldRefreshToken,
       },
     });
     if (!user) {
@@ -29,6 +37,102 @@ export const authFunc: RequestHandler = async (req, res, next) => {
   } catch (e) {
     console.error('유저 토큰 find 에러', e);
     return res.status(400).json(e);
+  }
+
+  // expired 아닌 경우 다시 재발행하지 않음
+  const isTokenExpired =
+    user.kakaoAccessTokenExpiresOn &&
+    user.kakaoRefreshTokenExpiresOn &&
+    user.kakaoAccessTokenExpiresOn < new Date() &&
+    user.kakaoRefreshTokenExpiresOn < new Date();
+
+  if (isTokenExpired) {
+    // 카카오 토큰 재발행
+    let kakaoTokenRefreshRes: kakaoTokenRefreshRes;
+    try {
+      kakaoTokenRefreshRes = (
+        await axios({
+          url: 'https://kauth.kakao.com/oauth/token',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
+          },
+          data: qs.stringify({
+            grant_type: 'refresh_token',
+            client_id: KAKAO_REST_API_KEY,
+            refresh_token: oldRefreshToken,
+          }),
+        })
+      ).data;
+    } catch (e) {
+      console.error('유저 토큰 재발행 에러', e);
+      return res.status(400).json(e);
+    }
+
+    // 카카오 억세스 토큰으로 사용자 정보 가져오기
+    const { access_token, expires_in, refresh_token, refresh_token_expires_in } = kakaoTokenRefreshRes;
+
+    let kakaoUserInfo: KakaoUserInfo;
+    try {
+      kakaoUserInfo = (
+        await axios({
+          url: 'https://kapi.kakao.com/v2/user/me',
+          method: 'GET',
+          headers: { Authorization: `Bearer ${access_token}` },
+        })
+      ).data;
+    } catch (e) {
+      console.error('사용자 정보 받기 에러', e);
+      return res.status(400).json(e);
+    }
+
+    // 카카오 ID와 일치하는 유저가 없으면 생성하고 있으면 토큰 갱신 (회원가입)
+    try {
+      user = await prisma.user.upsert({
+        where: {
+          kakaoId: kakaoUserInfo.id,
+        },
+        create: {
+          kakaoId: kakaoUserInfo.id,
+          name: kakaoUserInfo.properties?.nickname || null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          kakaoAccessToken: access_token,
+          kakaoAccessTokenExpiresOn: add(new Date(), { seconds: expires_in }),
+          kakaoRefreshToken: refresh_token,
+          kakaoRefreshTokenExpiresOn: add(new Date(), { seconds: refresh_token_expires_in }),
+        },
+        update: {
+          updatedAt: new Date(),
+          name: kakaoUserInfo.properties?.nickname || null,
+          kakaoAccessToken: access_token,
+          kakaoAccessTokenExpiresOn: add(new Date(), { seconds: expires_in }),
+          kakaoRefreshToken: refresh_token,
+          kakaoRefreshTokenExpiresOn: add(new Date(), { seconds: refresh_token_expires_in }),
+        },
+      });
+    } catch (e) {
+      console.error('유저 생성 에러', e);
+      return res.status(400).json(e);
+    }
+
+    const cookieResponse = {
+      ...kakaoUserInfo,
+      refresh_token,
+    };
+
+    // 서비스 앱의 토큰 생성 및 전달
+    const { appRefreshToken } = token.generateToken(cookieResponse, true);
+
+    const domain = isDev ? 'localhost' : 'teamhh.link';
+    res.cookie('refresh_jwt', appRefreshToken, {
+      domain,
+      path: '/',
+      sameSite: 'none',
+      httpOnly: true,
+      secure: true,
+      expires: new Date(Date.now() + 24 * 3600 * 1000 * 7), // 7일 후 소멸되는 Persistent Cookie
+    });
   }
 
   // 헤더 검증
