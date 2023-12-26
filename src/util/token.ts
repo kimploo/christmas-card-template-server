@@ -17,6 +17,15 @@ interface TokenResult {
   appRefreshToken: string | null;
 }
 
+interface AuthToken {
+  refresh_token: string;
+  id: number;
+  connected_at: string;
+  properties: {
+    nickname: string | null;
+  };
+}
+
 type Type = 'access' | 'refresh';
 
 export default {
@@ -37,7 +46,8 @@ export default {
     return result;
   },
   verifyToken: (type: Type, token: string) => {
-    let secretKey, decoded;
+    let secretKey;
+    let decoded: AuthToken;
     switch (type) {
       case 'access':
         secretKey = APP_ACCESS_SECRET;
@@ -51,7 +61,7 @@ export default {
     console.log('verifyToken', type, token);
 
     try {
-      if (secretKey) decoded = verify(token, secretKey);
+      if (secretKey) decoded = verify(token, secretKey) as AuthToken;
       else throw 'no secret key';
     } catch (err) {
       console.log(`verify app token error: ${err}`);
