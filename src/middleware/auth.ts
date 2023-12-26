@@ -8,6 +8,8 @@ import axios from 'axios';
 import qs from 'qs';
 import { KakaoUserInfo } from '@customType/kakaoRes';
 import { add } from 'date-fns';
+import refreshKakaoToken from 'src/api/kakao/refreshKakaoToken';
+import getKakaoUser from 'src/api/kakao/getKakaoUser';
 
 const isDev = process.env.IS_OFFLINE;
 const { KAKAO_REST_API_KEY } = process.env;
@@ -50,20 +52,7 @@ export const authFunc: RequestHandler = async (req, res, next) => {
     // 카카오 토큰 재발행
     let kakaoTokenRefreshRes: kakaoTokenRefreshRes;
     try {
-      kakaoTokenRefreshRes = (
-        await axios({
-          url: 'https://kauth.kakao.com/oauth/token',
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
-          },
-          data: qs.stringify({
-            grant_type: 'refresh_token',
-            client_id: KAKAO_REST_API_KEY,
-            refresh_token: oldRefreshToken,
-          }),
-        })
-      ).data;
+      kakaoTokenRefreshRes = (await refreshKakaoToken({ refresh_token: user.kakaoRefreshToken })).data;
     } catch (e) {
       console.error('유저 토큰 재발행 에러', e);
       return res.status(400).json(e);
@@ -74,13 +63,7 @@ export const authFunc: RequestHandler = async (req, res, next) => {
 
     let kakaoUserInfo: KakaoUserInfo;
     try {
-      kakaoUserInfo = (
-        await axios({
-          url: 'https://kapi.kakao.com/v2/user/me',
-          method: 'GET',
-          headers: { Authorization: `Bearer ${access_token}` },
-        })
-      ).data;
+      kakaoUserInfo = (await getKakaoUser({ access_token })).data;
     } catch (e) {
       console.error('사용자 정보 받기 에러', e);
       return res.status(400).json(e);
