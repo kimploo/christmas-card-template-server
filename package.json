@@ -6,7 +6,7 @@
   "author": "Hong Shik Branden Kim <kimploo@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "dev": "serverless offline",
+    "dev": "dotenv -e .env.dev serverless offline",
     "sls-deploy": "serverless deploy",
     "sls-remove": "serverless remove",
     "db-dev-push": "dotenv -e .env.dev prisma db push",
