@@ -13,7 +13,7 @@ const app = express();
 
 const isDev = process.env.IS_OFFLINE;
 const corsOrigin = isDev
-  ? ['http://localhost:5173', 'https://localhost:5173']
+  ? ['https://localhost:5173', 'http://localhost:5173']
   : ['https://hyodee-card.surge.sh', /\.teamhh\.link$/];
 
 app.use(
@@ -23,6 +23,7 @@ app.use(
     preflightContinue: false,
     optionsSuccessStatus: 204,
     credentials: true,
+    allowedHeaders: ['Accept', 'Authorization', 'Content-Type', 'X-Requested-With', 'Range', 'baggage', 'sentry-trace'],
   })
 );
 app.use(cookieParser());

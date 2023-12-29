@@ -8,6 +8,10 @@ import { KakaoTokenRes, KakaoUserInfo } from '@customType/kakaoRes';
 import { add } from 'date-fns';
 import { kakaoTokenRefreshRes } from './auth.type';
 import cookieUtil from '../util/cookie';
+import refreshKakaoToken from 'src/api/kakao/refreshKakaoToken';
+import getKakaoUser from 'src/api/kakao/getKakaoUser';
+import kakaoLogout from 'src/api/kakao/kakaoLogout';
+import getKakaoToken from 'src/api/kakao/getKakaoToken';
 
 const prisma = new PrismaClient();
 const isDev = process.env.IS_OFFLINE;
@@ -46,17 +50,8 @@ export default {
     let kakaoTokenRefreshRes: kakaoTokenRefreshRes;
     try {
       kakaoTokenRefreshRes = (
-        await axios({
-          url: 'https://kauth.kakao.com/oauth/token',
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
-          },
-          data: qs.stringify({
-            grant_type: 'refresh_token',
-            client_id: KAKAO_REST_API_KEY,
-            refresh_token: oldRefreshToken,
-          }),
+        await refreshKakaoToken({
+          refresh_token: oldRefreshToken,
         })
       ).data;
     } catch (e) {
@@ -71,13 +66,7 @@ export default {
     // 카카오 유저 정보 재확인
     let kakaoUserInfo: KakaoUserInfo;
     try {
-      kakaoUserInfo = (
-        await axios({
-          url: 'https://kapi.kakao.com/v2/user/me',
-          method: 'GET',
-          headers: { Authorization: `Bearer ${access_token}` },
-        })
-      ).data;
+      kakaoUserInfo = (await getKakaoUser({ access_token })).data;
     } catch (e) {
       console.error('사용자 정보 받기 에러', e);
       return res.status(400).json(e);
@@ -91,6 +80,7 @@ export default {
           kakaoId: kakaoUserInfo.id,
         },
         data: {
+          name: kakaoUserInfo.properties?.nickname || null,
           kakaoAccessToken: access_token,
           kakaoAccessTokenExpiresOn: add(new Date(), { seconds: expires_in }),
           kakaoRefreshToken: !isRefreshed ? undefined : refresh_token,
@@ -134,6 +124,7 @@ export default {
     const cookie = req.cookies['refresh_jwt'];
     const decoded = token.verifyToken('refresh', cookie);
     if (!decoded || typeof decoded === 'string') {
+      cookieUtil.clear(res);
       return res.status(401).json('not authorized');
     }
 
@@ -150,21 +141,14 @@ export default {
       console.error('유저 토큰 find 에러', e);
       return res.status(400).json(e);
     }
-    const access_token = user?.kakaoAccessToken;
+
+    if (!user) return res.status(404).json('Not Found');
 
     // 카카오 유저 정보 재확인
+    const access_token = user.kakaoAccessToken as string;
     let kakaoUserInfo: KakaoUserInfo;
     try {
-      kakaoUserInfo = (
-        await axios({
-          url: 'https://kapi.kakao.com/v2/user/me',
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
-            Authorization: `Bearer ${access_token}`,
-          },
-        })
-      ).data;
+      kakaoUserInfo = (await getKakaoUser({ access_token })).data;
     } catch (e) {
       console.error('사용자 정보 받기 에러', e);
       return res.status(400).json(e);
@@ -172,21 +156,12 @@ export default {
     console.log('여기가 id값이 바뀐다구요 ..? 로그아웃', kakaoUserInfo);
     console.log('logout find user', user);
 
-    let kakaoLogoutRes = await axios({
-      url: 'https://kapi.kakao.com/v1/user/logout',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
-        Authorization: `Bearer ${access_token}`,
-      },
-    })
-      .then((res) => {
-        console.log(res.data);
-        return res.data;
-      })
-      .catch((e) => {
-        console.error('카카오 로그아웃', e);
-      });
+    try {
+      await kakaoLogout({ access_token });
+    } catch (e) {
+      console.error('카카오 로그아웃 에러', e);
+      return res.status(400).json(e);
+    }
 
     const kakaoId = kakaoUserInfo.id;
     console.log('kakaoId', kakaoId?.toString());
@@ -199,6 +174,7 @@ export default {
         data: {
           kakaoAccessToken: null,
           kakaoRefreshToken: null,
+          name: kakaoUserInfo.properties?.nickname || null,
           kakaoAccessTokenExpiresOn: null,
           kakaoRefreshTokenExpiresOn: null,
         },
@@ -219,7 +195,7 @@ export default {
     if (!KAKAO_REST_API_KEY || !CLIENT_URI_DEV || !CLIENT_URI_PROD || !SERVER_URI_DEV || !SERVER_URI_PROD)
       throw new Error('should set env');
 
-    const code = req.query.code;
+    const code = req.query.code as string;
     const redirect_uri = isDev ? new URL('/auth', SERVER_URI_DEV).href : new URL('/auth', SERVER_URI_PROD).href;
     const client_redirect_url = isDev ? CLIENT_URI_DEV : CLIENT_URI_PROD;
 
@@ -232,16 +208,9 @@ export default {
     let kakaoRes: KakaoTokenRes;
     try {
       kakaoRes = (
-        await axios({
-          url: 'https://kauth.kakao.com/oauth/token',
-          method: 'POST',
-          headers: { 'content-type': 'application/x-www-form-urlencoded;charset=utf-8' },
-          data: qs.stringify({
-            grant_type: 'authorization_code',
-            client_id: KAKAO_REST_API_KEY,
-            code,
-            redirect_uri,
-          }),
+        await getKakaoToken({
+          code,
+          redirect_uri,
         })
       ).data;
     } catch (e) {
@@ -254,13 +223,7 @@ export default {
 
     let kakaoUserInfo: KakaoUserInfo;
     try {
-      kakaoUserInfo = (
-        await axios({
-          url: 'https://kapi.kakao.com/v2/user/me',
-          method: 'GET',
-          headers: { Authorization: `Bearer ${access_token}` },
-        })
-      ).data;
+      kakaoUserInfo = (await getKakaoUser({ access_token })).data;
     } catch (e) {
       console.error('사용자 정보 받기 에러', e);
       return res.status(400).json(e);
@@ -276,6 +239,7 @@ export default {
         },
         create: {
           kakaoId: kakaoUserInfo.id,
+          name: kakaoUserInfo.properties?.nickname || null,
           createdAt: new Date(),
           updatedAt: new Date(),
           kakaoAccessToken: access_token,
@@ -285,6 +249,7 @@ export default {
         },
         update: {
           updatedAt: new Date(),
+          name: kakaoUserInfo.properties?.nickname || null,
           kakaoAccessToken: access_token,
           kakaoAccessTokenExpiresOn: add(new Date(), { seconds: expires_in }),
           kakaoRefreshToken: refresh_token,
