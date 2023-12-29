@@ -1,6 +1,9 @@
 import { Card, PrismaClient } from '@prisma/client';
 import token from '@util/token';
 import { Request, Response } from 'express';
+import { ParamsDictionary } from 'express-serve-static-core';
+import { CreateCardReqDTO } from './dto/createCard.dto';
+import { updateCardReqDTO } from './dto/updateCard.dto';
 const prisma = new PrismaClient();
 
 const getPageStartEnd = (limit: number, page: number) => {
@@ -12,11 +15,9 @@ const getPageStartEnd = (limit: number, page: number) => {
 export default {
   findMany: async (req: Request, res: Response) => {
     const { limit, page } = req.query;
-
-    if (!limit || !page) res.status(400).send('should have pagination parameter');
+    if (!limit || !page) return res.status(400).send('should have pagination parameter');
 
     const { pageStart, pageEnd } = getPageStartEnd(Number(limit), Number(page));
-
     const result = await prisma.card.findMany({
       skip: pageStart,
       take: pageEnd,
@@ -33,33 +34,58 @@ export default {
     return res.json(result);
   },
 
-  createOne: async (req: Request, res: Response) => {
+  createOne: async (req: Request<ParamsDictionary, any, CreateCardReqDTO>, res: Response) => {
     const refreshToken = req.cookies['refresh_jwt'];
     const decoded = token.verifyToken('refresh', refreshToken);
-    if (!decoded || typeof decoded === 'string') {
-      return res.status(401).json('not authorized');
-    }
+    if (!decoded || typeof decoded === 'string') return res.status(401).json('not authorized');
 
     const user = await prisma.user.findUnique({
       where: {
         kakaoId: decoded?.id,
       },
     });
+    if (!user) return res.status(401).json('not authorized');
 
-    if (!user) {
-      return res.status(401).json('not authorized');
-    }
-
+    const { from, to, msg, artworkId, artworkUrl, artworkBackgroundId, bgColor, artworkSnowballId, imgUrls } = req.body;
     let card: Card | null;
     try {
       card = await prisma.card.create({
         data: {
-          from: req.body.from,
-          to: req.body.to,
-          msg: req.body.msg,
-          artwork: req.body.artwork,
+          from,
+          to,
+          msg,
           userId: user.id,
           createdAt: new Date(),
+          Artwork: {
+            connectOrCreate: {
+              where: {
+                id: artworkId,
+              },
+              create: {
+                url: artworkUrl,
+                ArtworkBackground: {
+                  connectOrCreate: {
+                    where: {
+                      id: artworkBackgroundId,
+                    },
+                    create: {
+                      bgColor,
+                    },
+                  },
+                },
+                ArtworkSnowball: {
+                  connectOrCreate: {
+                    where: {
+                      id: artworkSnowballId,
+                    },
+                    create: {
+                      imgUrls,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       });
     } catch (e) {
@@ -72,16 +98,51 @@ export default {
     });
   },
 
-  updateOne: async (req: Request, res: Response) => {
-    const { data } = req.body;
+  updateOne: async (req: Request<ParamsDictionary, any, updateCardReqDTO>, res: Response) => {
+    const { from, to, msg, artworkId, artworkUrl, artworkBackgroundId, bgColor, artworkSnowballId, imgUrls } = req.body;
     const cardId = Number(req.params.id);
 
+    let card: Card | null;
     try {
-      await prisma.card.update({
+      card = await prisma.card.update({
         where: { id: cardId },
         data: {
-          ...data,
+          from,
+          to,
+          msg,
           updatedAt: new Date(),
+        },
+      });
+
+      const artwork = await prisma.artwork.upsert({
+        where: {
+          id: artworkId,
+        },
+        create: {
+          url: artworkUrl,
+          ArtworkBackground: {
+            connectOrCreate: {
+              where: {
+                id: artworkBackgroundId,
+              },
+              create: {
+                bgColor,
+              },
+            },
+          },
+        },
+        update: {
+          url: artworkUrl,
+          ArtworkBackground: {
+            update: {
+              where: {
+                id: artworkSnowballId,
+              },
+              data: {
+                bgColor,
+              },
+            },
+          },
         },
       });
     } catch (e) {
@@ -89,7 +150,7 @@ export default {
     }
 
     return res.json({
-      status: 'ok',
+      id: card.uuid,
     });
   },
 

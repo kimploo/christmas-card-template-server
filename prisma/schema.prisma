@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-1.0.x"]
 }
 
@@ -9,27 +9,48 @@ datasource db {
 }
 
 model User {
-  id       Int     @id @default(autoincrement())
-  createdAt DateTime
-  updatedAt DateTime? 
-  kakaoId  BigInt @unique
-  kakaoAccessToken  String? @unique
+  id                         Int       @id @default(autoincrement())
+  createdAt                  DateTime
+  updatedAt                  DateTime?
+  kakaoId                    BigInt    @unique
+  kakaoAccessToken           String?   @unique
   kakaoAccessTokenExpiresOn  DateTime?
-  kakaoRefreshToken  String? @unique
-  kakaoRefreshTokenExpiresOn  DateTime?
-  name     String?
-  card     Card[]
+  kakaoRefreshToken          String?   @unique
+  kakaoRefreshTokenExpiresOn DateTime?
+  name                       String?
+  Card                       Card[]
 }
 
 model Card {
-  id     Int    @id @default(autoincrement())
-  uuid     String?  @unique @default(uuid())
-  createdAt DateTime
-  updatedAt DateTime?
-  from   String
-  to     String
-  msg    String
-  artwork String
-  User   User?  @relation(fields: [userId], references: [id])
-  userId Int?
+  id             Int              @id @default(autoincrement())
+  uuid           String?          @unique @default(uuid())
+  createdAt      DateTime
+  updatedAt      DateTime?
+  from           String
+  to             String
+  msg            String
+  User           User?            @relation(fields: [userId], references: [id])
+  userId         Int?
+  Artwork Artwork[]
+}
+
+model Artwork {
+  id      Int    @id @default(autoincrement())
+  url     String
+  Card    Card?  @relation(fields: [cardId], references: [id])
+  cardId  Int?
+  ArtworkBackground ArtworkBackground[]
+  ArtworkSnowball ArtworkSnowball[]
+}
+
+model ArtworkBackground {
+  id      Int    @id @default(autoincrement())
+  bgColor String /// HEX Color
+  Artwork Artwork[]
+}
+
+model ArtworkSnowball {
+  id     Int      @id @default(autoincrement())
+  imgUrls  String[] /// CSS value
+  Artwork Artwork[]
 }
