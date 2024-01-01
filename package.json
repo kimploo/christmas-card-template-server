@@ -5,6 +5,9 @@
   "repository": "git@github.com:kimploo/christmas-card-template-server.git",
   "author": "Hong Shik Branden Kim <kimploo@gmail.com>",
   "license": "MIT",
+  "prisma": {
+    "seed": "node --loader ts-node/esm prisma/seed.ts"
+  },
   "scripts": {
     "dev": "dotenv -e .env.dev serverless offline",
     "sls-deploy": "serverless deploy",

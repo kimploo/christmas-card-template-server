@@ -1,6 +1,7 @@
 generator client {
   provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-1.0.x"]
+  // output = "./client"
 }
 
 datasource db {
@@ -22,35 +23,34 @@ model User {
 }
 
 model Card {
-  id             Int              @id @default(autoincrement())
-  uuid           String?          @unique @default(uuid())
-  createdAt      DateTime
-  updatedAt      DateTime?
-  from           String
-  to             String
-  msg            String
-  User           User?            @relation(fields: [userId], references: [id])
-  userId         Int?
-  Artwork Artwork[]
+  id        Int       @id @default(autoincrement())
+  uuid      String?   @unique @default(uuid())
+  createdAt DateTime
+  updatedAt DateTime?
+  from      String
+  to        String
+  msg       String
+  User      User?     @relation(fields: [userId], references: [id])
+  userId    Int?
+  Artwork   Artwork[]
 }
 
 model Artwork {
-  id      Int    @id @default(autoincrement())
-  url     String
-  Card    Card?  @relation(fields: [cardId], references: [id])
-  cardId  Int?
+  id                Int                 @id @default(autoincrement())
+  url               String
+  Card              Card[]
   ArtworkBackground ArtworkBackground[]
-  ArtworkSnowball ArtworkSnowball[]
+  ArtworkSnowFlake  ArtworkSnowFlake[]
 }
 
 model ArtworkBackground {
-  id      Int    @id @default(autoincrement())
+  id      Int       @id @default(autoincrement())
   bgColor String /// HEX Color
   Artwork Artwork[]
 }
 
-model ArtworkSnowball {
-  id     Int      @id @default(autoincrement())
-  imgUrls  String[] /// CSS value
+model ArtworkSnowFlake {
+  id      Int       @id @default(autoincrement())
+  imgUrls String[] /// CSS value
   Artwork Artwork[]
 }
