@@ -78,7 +78,7 @@ export default {
 
     if (!user) return res.status(401).json({ error: 'unauthorized' });
 
-    const { from, to, msg, artworkId, artworkUrl, artworkBackgroundId, bgColor, ArtworkSnowFlakeId, imgUrls } =
+    const { from, to, msg, artworkId, artworkUrl, artworkBackgroundId, bgColor, artworkSnowFlakeId, imgUrls } =
       req.body;
     let card;
     try {
@@ -89,38 +89,13 @@ export default {
           msg,
           userId: user.id,
           createdAt: new Date(),
-          Artwork: {
-            connectOrCreate: {
-              where: {
-                id: artworkId,
-              },
-              create: {
-                url: artworkUrl,
-                ArtworkBackground: {
-                  connectOrCreate: {
-                    where: {
-                      id: artworkBackgroundId,
-                    },
-                    create: {
-                      bgColor,
-                    },
-                  },
-                },
-                ArtworkSnowFlake: {
-                  connectOrCreate: {
-                    where: {
-                      id: ArtworkSnowFlakeId,
-                    },
-                    create: {
-                      imgUrls,
-                    },
-                  },
-                },
-              },
-            },
-          },
+          artworkId,
+          artworkBackgroundId,
+          artworkSnowFlakeId,
         },
       });
+
+      if (!card) return res.status(400).json({ error: 'not found' });
     } catch (e) {
       console.error(getErrorMessage(e));
       return res.status(400).json({ error: 'not found' });

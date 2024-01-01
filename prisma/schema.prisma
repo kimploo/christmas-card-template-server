@@ -23,16 +23,21 @@ model User {
 }
 
 model Card {
-  id        Int       @id @default(autoincrement())
-  uuid      String?   @unique @default(uuid())
-  createdAt DateTime
-  updatedAt DateTime?
-  from      String
-  to        String
-  msg       String
-  User      User?     @relation(fields: [userId], references: [id])
-  userId    Int?
-  Artwork   Artwork[]
+  id                  Int               @id @default(autoincrement())
+  uuid                String?           @unique @default(uuid())
+  createdAt           DateTime
+  updatedAt           DateTime?
+  from                String
+  to                  String
+  msg                 String
+  User                User?             @relation(fields: [userId], references: [id])
+  userId              Int?
+  Artwork             Artwork           @relation(fields: [artworkId], references: [id])
+  artworkId           Int
+  ArtworkBackground   ArtworkBackground @relation(fields: [artworkBackgroundId], references: [id])
+  artworkBackgroundId Int
+  ArtworkSnowFlake    ArtworkSnowFlake  @relation(fields: [artworkSnowFlakeId], references: [id])
+  artworkSnowFlakeId  Int
 }
 
 model Artwork {
@@ -46,11 +51,13 @@ model Artwork {
 model ArtworkBackground {
   id      Int       @id @default(autoincrement())
   bgColor String /// HEX Color
+  Card    Card[]
   Artwork Artwork[]
 }
 
 model ArtworkSnowFlake {
   id      Int       @id @default(autoincrement())
   imgUrls String[] /// CSS value
+  Card    Card[]
   Artwork Artwork[]
 }
