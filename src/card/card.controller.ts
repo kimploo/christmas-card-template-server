@@ -4,6 +4,8 @@ import { Request, Response } from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
 import { CreateCardReqDTO } from './dto/createCard.dto';
 import { updateCardReqDTO } from './dto/updateCard.dto';
+import { DefaultResDTO } from '@customType/dto';
+import { getErrorMessage } from '@util/errorHandler';
 const prisma = new PrismaClient();
 
 const getPageStartEnd = (limit: number, page: number) => {
@@ -13,41 +15,72 @@ const getPageStartEnd = (limit: number, page: number) => {
 };
 
 export default {
-  findMany: async (req: Request, res: Response) => {
+  findMany: async (req: Request, res: Response<DefaultResDTO<Card[], string>>) => {
     const { limit, page } = req.query;
-    if (!limit || !page) return res.status(400).send('should have pagination parameter');
+    if (!limit || !page) return res.status(400).send({ error: 'Bad Request' });
 
     const { pageStart, pageEnd } = getPageStartEnd(Number(limit), Number(page));
-    const result = await prisma.card.findMany({
-      skip: pageStart,
-      take: pageEnd,
-    });
+    let cards;
+    try {
+      cards = await prisma.card.findMany({
+        skip: pageStart,
+        take: pageEnd,
+      });
+    } catch (e) {
+      console.error(getErrorMessage(e));
+      return res.status(404).send({ error: 'Not Found' });
+    }
 
-    return res.json(result);
+    return res.json({
+      data: cards,
+    });
   },
 
-  findOne: async (req: Request, res: Response) => {
+  findOne: async (req: Request, res: Response<DefaultResDTO<Card, string>>) => {
     const uuid = req.params.uuid;
-    const result = await prisma.card.findUnique({
-      where: { uuid },
+    let card;
+
+    try {
+      card = await prisma.card.findUnique({
+        where: { uuid },
+      });
+    } catch (e) {
+      console.error(getErrorMessage(e));
+      return res.status(404).send({ error: 'Not Found' });
+    }
+
+    if (!card) return res.status(404).send({ error: 'Not Found' });
+
+    return res.json({
+      data: card,
     });
-    return res.json(result);
   },
 
-  createOne: async (req: Request<ParamsDictionary, any, CreateCardReqDTO>, res: Response) => {
+  createOne: async (
+    req: Request<ParamsDictionary, any, CreateCardReqDTO>,
+    res: Response<DefaultResDTO<{ uuid: string | null }, string>>
+  ) => {
     const refreshToken = req.cookies['refresh_jwt'];
     const decoded = token.verifyToken('refresh', refreshToken);
-    if (!decoded || typeof decoded === 'string') return res.status(401).json('not authorized');
+    if (!decoded || typeof decoded === 'string') return res.status(401).json({ error: 'unauthorized' });
 
-    const user = await prisma.user.findUnique({
-      where: {
-        kakaoId: decoded?.id,
-      },
-    });
-    if (!user) return res.status(401).json('not authorized');
+    let user;
+    try {
+      user = await prisma.user.findUnique({
+        where: {
+          kakaoId: decoded?.id,
+        },
+      });
+    } catch (e) {
+      console.error(getErrorMessage(e));
+      return res.status(404).send({ error: 'Not Found' });
+    }
 
-    const { from, to, msg, artworkId, artworkUrl, artworkBackgroundId, bgColor, artworkSnowballId, imgUrls } = req.body;
-    let card: Card | null;
+    if (!user) return res.status(401).json({ error: 'unauthorized' });
+
+    const { from, to, msg, artworkId, artworkUrl, artworkBackgroundId, bgColor, ArtworkSnowFlakeId, imgUrls } =
+      req.body;
+    let card;
     try {
       card = await prisma.card.create({
         data: {
@@ -73,10 +106,10 @@ export default {
                     },
                   },
                 },
-                ArtworkSnowball: {
+                ArtworkSnowFlake: {
                   connectOrCreate: {
                     where: {
-                      id: artworkSnowballId,
+                      id: ArtworkSnowFlakeId,
                     },
                     create: {
                       imgUrls,
@@ -89,17 +122,23 @@ export default {
         },
       });
     } catch (e) {
-      console.error(e);
-      return res.status(400).json(e);
+      console.error(getErrorMessage(e));
+      return res.status(400).json({ error: 'not found' });
     }
 
     return res.status(201).json({
-      uuid: card.uuid,
+      data: {
+        uuid: card.uuid,
+      },
     });
   },
 
-  updateOne: async (req: Request<ParamsDictionary, any, updateCardReqDTO>, res: Response) => {
-    const { from, to, msg, artworkId, artworkUrl, artworkBackgroundId, bgColor, artworkSnowballId, imgUrls } = req.body;
+  updateOne: async (
+    req: Request<ParamsDictionary, any, updateCardReqDTO>,
+    res: Response<DefaultResDTO<{ uuid: string | null }, string>>
+  ) => {
+    const { from, to, msg, artworkId, artworkUrl, artworkBackgroundId, bgColor, artworkSnowFlakeId, imgUrls } =
+      req.body;
     const cardId = Number(req.params.id);
 
     let card: Card | null;
@@ -114,7 +153,7 @@ export default {
         },
       });
 
-      const artwork = await prisma.artwork.upsert({
+      await prisma.artwork.upsert({
         where: {
           id: artworkId,
         },
@@ -130,31 +169,54 @@ export default {
               },
             },
           },
+          ArtworkSnowFlake: {
+            connectOrCreate: {
+              where: {
+                id: artworkSnowFlakeId,
+              },
+              create: {
+                imgUrls,
+              },
+            },
+          },
         },
         update: {
           url: artworkUrl,
           ArtworkBackground: {
             update: {
               where: {
-                id: artworkSnowballId,
+                id: artworkBackgroundId,
               },
               data: {
                 bgColor,
               },
             },
           },
+          ArtworkSnowFlake: {
+            update: {
+              where: {
+                id: artworkSnowFlakeId,
+              },
+              data: {
+                imgUrls,
+              },
+            },
+          },
         },
       });
     } catch (e) {
-      return res.status(400).json(e);
+      console.error(getErrorMessage(e));
+      return res.status(400).json({ error: 'bad request' });
     }
 
     return res.json({
-      id: card.uuid,
+      data: {
+        uuid: card.uuid,
+      },
     });
   },
 
-  deleteOne: async (req: Request, res: Response) => {
+  deleteOne: async (req: Request, res: Response<DefaultResDTO<null, string>>) => {
     const id = Number(req.params.id);
 
     try {
@@ -164,11 +226,11 @@ export default {
         },
       });
     } catch (e) {
-      return res.status(400).json(e);
+      console.error(getErrorMessage(e));
+      return res.status(404).json({ error: 'not found' });
     }
     return res.status(204).json({
-      status: 'ok',
-      response: 'No Content',
+      data: null,
     });
   },
 };

@@ -6,6 +6,6 @@ export interface CreateCardReqDTO {
   artworkUrl: string;
   artworkBackgroundId: number;
   bgColor: string;
-  artworkSnowballId: number;
+  ArtworkSnowFlakeId: number;
   imgUrls: string[];
 }
