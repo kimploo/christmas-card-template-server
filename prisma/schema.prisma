@@ -50,14 +50,14 @@ model Artwork {
 
 model ArtworkBackground {
   id      Int       @id @default(autoincrement())
-  bgColor String /// HEX Color
+  bgInfo  Json
   Card    Card[]
   Artwork Artwork[]
 }
 
 model ArtworkSnowFlake {
   id      Int       @id @default(autoincrement())
-  imgUrls String[] /// CSS value
+  imgUrls String[] /// snowflake imgs
   Card    Card[]
   Artwork Artwork[]
 }
