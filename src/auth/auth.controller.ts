@@ -1,19 +1,19 @@
-import axios from 'axios';
-import qs from 'qs';
 import { PrismaClient, User } from '@prisma/client';
-import { Request, Response } from 'express';
-
-import token from '@util/token';
-import { KakaoTokenRes, KakaoUserInfo } from '@customType/kakaoRes';
-import { add } from 'date-fns';
-import { kakaoTokenRefreshRes } from './auth.type';
-import cookieUtil from '../util/cookie';
-import refreshKakaoToken from 'src/api/kakao/refreshKakaoToken';
-import getKakaoUser from 'src/api/kakao/getKakaoUser';
-import kakaoLogout from 'src/api/kakao/kakaoLogout';
-import getKakaoToken from 'src/api/kakao/getKakaoToken';
-
 const prisma = new PrismaClient();
+
+import { Request, Response } from 'express';
+import { add } from 'date-fns';
+
+import cookieUtil from '@/util/cookie';
+import refreshKakaoToken from '@/api/kakao/refreshKakaoToken';
+import getKakaoUser from '@/api/kakao/getKakaoUser';
+import kakaoLogout from '@/api/kakao/kakaoLogout';
+import getKakaoToken from '@/api/kakao/getKakaoToken';
+
+import token from '@/util/token';
+import { KakaoTokenRes, KakaoUserInfo } from '@/types/kakaoRes';
+import { kakaoTokenRefreshRes } from './auth.type';
+
 const isDev = process.env.IS_OFFLINE;
 const domain = isDev ? 'localhost' : 'teamhh.link';
 const { KAKAO_REST_API_KEY, CLIENT_URI_DEV, CLIENT_URI_PROD, SERVER_URI_DEV, SERVER_URI_PROD } = process.env;

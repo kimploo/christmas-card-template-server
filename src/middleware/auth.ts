@@ -3,10 +3,10 @@ const prisma = new PrismaClient();
 import { add } from 'date-fns';
 import { RequestHandler } from 'express';
 
-import token from '@util/token';
-import cookieUtil from '@util/cookie';
-import { kakaoTokenRefreshRes } from '@auth/auth.type';
-import { KakaoUserInfo } from '@customType/kakaoRes';
+import token from '@/util/token';
+import cookieUtil from '@/util/cookie';
+import { kakaoTokenRefreshRes } from '@/auth/auth.type';
+import { KakaoUserInfo } from '@/types/kakaoRes';
 
 import refreshKakaoToken from 'src/api/kakao/refreshKakaoToken';
 import getKakaoUser from 'src/api/kakao/getKakaoUser';
