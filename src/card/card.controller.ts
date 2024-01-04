@@ -1,12 +1,15 @@
 import { Card, PrismaClient } from '@prisma/client';
-import token from '@util/token';
+const prisma = new PrismaClient();
+
 import { Request, Response } from 'express';
 import { ParamsDictionary } from 'express-serve-static-core';
+
+import { DefaultResDTO } from '@/types/dto';
 import { CreateCardReqDTO } from './dto/createCard.dto';
 import { updateCardReqDTO } from './dto/updateCard.dto';
-import { DefaultResDTO } from '@customType/dto';
-import { getErrorMessage } from '@util/errorHandler';
-const prisma = new PrismaClient();
+import { getErrorMessage } from '@/util/errorHandler';
+import { CardWithInfos } from './dto/getCard.dto';
+import token from '@/util/token';
 
 const getPageStartEnd = (limit: number, page: number) => {
   const pageStart = (page - 1) * limit;
@@ -15,7 +18,7 @@ const getPageStartEnd = (limit: number, page: number) => {
 };
 
 export default {
-  findMany: async (req: Request, res: Response<DefaultResDTO<Card[], string>>) => {
+  findMany: async (req: Request, res: Response<DefaultResDTO<CardWithInfos[], string>>) => {
     const { limit, page } = req.query;
     if (!limit || !page) return res.status(400).send({ error: 'Bad Request' });
 
@@ -23,6 +26,11 @@ export default {
     let cards;
     try {
       cards = await prisma.card.findMany({
+        include: {
+          Artwork: true,
+          ArtworkBackground: true,
+          ArtworkSnowFlake: true,
+        },
         skip: pageStart,
         take: pageEnd,
       });
@@ -36,12 +44,17 @@ export default {
     });
   },
 
-  findOne: async (req: Request, res: Response<DefaultResDTO<Card, string>>) => {
+  findOne: async (req: Request, res: Response<DefaultResDTO<CardWithInfos, string>>) => {
     const uuid = req.params.uuid;
     let card;
 
     try {
       card = await prisma.card.findUnique({
+        include: {
+          Artwork: true,
+          ArtworkBackground: true,
+          ArtworkSnowFlake: true,
+        },
         where: { uuid },
       });
     } catch (e) {
@@ -68,7 +81,7 @@ export default {
     try {
       user = await prisma.user.findUnique({
         where: {
-          kakaoId: decoded?.id,
+          kakaoId: BigInt(decoded?.id),
         },
       });
     } catch (e) {
@@ -78,8 +91,7 @@ export default {
 
     if (!user) return res.status(401).json({ error: 'unauthorized' });
 
-    const { from, to, msg, artworkId, artworkUrl, artworkBackgroundId, bgColor, ArtworkSnowFlakeId, imgUrls } =
-      req.body;
+    const { from, to, msg, artworkId, artworkBackgroundId, artworkSnowFlakeId } = req.body;
     let card;
     try {
       card = await prisma.card.create({
@@ -89,38 +101,13 @@ export default {
           msg,
           userId: user.id,
           createdAt: new Date(),
-          Artwork: {
-            connectOrCreate: {
-              where: {
-                id: artworkId,
-              },
-              create: {
-                url: artworkUrl,
-                ArtworkBackground: {
-                  connectOrCreate: {
-                    where: {
-                      id: artworkBackgroundId,
-                    },
-                    create: {
-                      bgColor,
-                    },
-                  },
-                },
-                ArtworkSnowFlake: {
-                  connectOrCreate: {
-                    where: {
-                      id: ArtworkSnowFlakeId,
-                    },
-                    create: {
-                      imgUrls,
-                    },
-                  },
-                },
-              },
-            },
-          },
+          artworkId,
+          artworkBackgroundId,
+          artworkSnowFlakeId,
         },
       });
+
+      if (!card) return res.status(400).json({ error: 'not found' });
     } catch (e) {
       console.error(getErrorMessage(e));
       return res.status(400).json({ error: 'not found' });
@@ -137,8 +124,7 @@ export default {
     req: Request<ParamsDictionary, any, updateCardReqDTO>,
     res: Response<DefaultResDTO<{ uuid: string | null }, string>>
   ) => {
-    const { from, to, msg, artworkId, artworkUrl, artworkBackgroundId, bgColor, artworkSnowFlakeId, imgUrls } =
-      req.body;
+    const { from, to, msg, artworkId, artworkUrl, artworkBackgroundId, bgInfo, artworkSnowFlakeId, imgUrls } = req.body;
     const cardId = Number(req.params.id);
 
     let card: Card | null;
@@ -165,7 +151,7 @@ export default {
                 id: artworkBackgroundId,
               },
               create: {
-                bgColor,
+                bgInfo,
               },
             },
           },
@@ -188,7 +174,7 @@ export default {
                 id: artworkBackgroundId,
               },
               data: {
-                bgColor,
+                bgInfo,
               },
             },
           },

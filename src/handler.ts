@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
 import { authRouter, cardRouter, loginRouter, logoutRouter, artworkRouter } from './router';
-import cookieUtil from './util/cookie';
+import cookieUtil from '@/util/cookie';
 
 dotenv.config();
 const app = express();

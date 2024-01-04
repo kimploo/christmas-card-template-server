@@ -13,12 +13,13 @@
     "outDir": "lib",
     "baseUrl": "./",
     "paths": {
-      "@db/*": ["src/db/*"],
-      "@auth/*": ["src/auth/*"],
-      "@models/*": ["src/models/*"],
-      "@common/*": ["src/common/*"],
-      "@customType/*": ["src/types/*"],
-      "@util/*": ["src/util/*"]
+      "@/db/*": ["src/db/*"],
+      "@/api/*": ["src/api/*"],
+      "@/auth/*": ["src/auth/*"],
+      "@/models/*": ["src/models/*"],
+      "@/common/*": ["src/common/*"],
+      "@/types/*": ["src/types/*"],
+      "@/util/*": ["src/util/*"]
     },
   },
   // "include": ["./**/*.ts"],
