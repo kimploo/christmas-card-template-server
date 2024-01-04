@@ -11,6 +11,7 @@ jspm_packages
 
 # Environment
 .env
+.env.dev
 log/*
 log/
 

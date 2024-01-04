@@ -5,7 +5,7 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 
-import { authRouter, cardRouter, loginRouter, logoutRouter } from './router';
+import { authRouter, cardRouter, loginRouter, logoutRouter, artworkRouter } from './router';
 import cookieUtil from './util/cookie';
 
 dotenv.config();
@@ -35,6 +35,7 @@ app.use('/login', loginRouter);
 app.use('/logout', logoutRouter);
 app.use('/auth', authRouter);
 app.use('/card', cardRouter);
+app.use('/artwork', artworkRouter);
 
 app.get('/', (_, res) => {
   return res.status(200).json({
