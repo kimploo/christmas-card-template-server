@@ -81,7 +81,7 @@ export default {
     try {
       user = await prisma.user.findUnique({
         where: {
-          kakaoId: decoded?.id,
+          kakaoId: BigInt(decoded?.id),
         },
       });
     } catch (e) {

@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "dotenv -e .env.dev serverless offline",
+    "prod": "dotenv -e .env serverless offline",
     "sls-deploy": "serverless deploy",
     "sls-remove": "serverless remove",
     "db-dev-push": "dotenv -e .env.dev prisma db push",

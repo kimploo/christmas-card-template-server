@@ -77,7 +77,7 @@ export default {
     try {
       user = await prisma.user.update({
         where: {
-          kakaoId: kakaoUserInfo.id,
+          kakaoId: BigInt(kakaoUserInfo.id),
         },
         data: {
           name: kakaoUserInfo.properties?.nickname || null,
@@ -163,8 +163,8 @@ export default {
       return res.status(400).json(e);
     }
 
-    const kakaoId = kakaoUserInfo.id;
-    console.log('kakaoId', kakaoId?.toString());
+    const kakaoId = BigInt(kakaoUserInfo.id);
+    console.log('kakaoId', kakaoId);
 
     try {
       user = await prisma.user.update({
@@ -235,10 +235,10 @@ export default {
     try {
       user = await prisma.user.upsert({
         where: {
-          kakaoId: kakaoUserInfo.id,
+          kakaoId: BigInt(kakaoUserInfo.id),
         },
         create: {
-          kakaoId: kakaoUserInfo.id,
+          kakaoId: BigInt(kakaoUserInfo.id),
           name: kakaoUserInfo.properties?.nickname || null,
           createdAt: new Date(),
           updatedAt: new Date(),

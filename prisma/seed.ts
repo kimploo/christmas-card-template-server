@@ -158,23 +158,23 @@ async function main() {
     },
   });
 
-  const card = await prisma.card.create({
-    data: {
-      id: 1,
-      from: '테스트 from',
-      to: '테스트 to',
-      msg: '테스트 카드 1',
-      createdAt: new Date(0),
-      artworkId: 1,
-      artworkBackgroundId: artworkBackground.id,
-      artworkSnowFlakeId: artworkSnowFlake.id,
-    },
-  });
+  // const card = await prisma.card.create({
+  //   data: {
+  //     id: 1,
+  //     from: '테스트 from',
+  //     to: '테스트 to',
+  //     msg: '테스트 카드 1',
+  //     createdAt: new Date(0),
+  //     artworkId: 1,
+  //     artworkBackgroundId: artworkBackground.id,
+  //     artworkSnowFlakeId: artworkSnowFlake.id,
+  //   },
+  // });
 
   console.log('artworks', artworks);
   console.log('artworkSnowFlakes', artworkSnowFlake);
   console.log('artworkBackground', artworkBackground);
-  console.log('card', card);
+  // console.log('card', card);
 }
 main()
   .then(async () => {

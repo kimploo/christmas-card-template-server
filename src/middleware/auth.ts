@@ -72,10 +72,10 @@ export const authFunc: RequestHandler = async (req, res, next) => {
     try {
       user = await prisma.user.upsert({
         where: {
-          kakaoId: kakaoUserInfo.id,
+          kakaoId: BigInt(kakaoUserInfo.id),
         },
         create: {
-          kakaoId: kakaoUserInfo.id,
+          kakaoId: BigInt(kakaoUserInfo.id),
           name: kakaoUserInfo.properties?.nickname || null,
           createdAt: new Date(),
           updatedAt: new Date(),
