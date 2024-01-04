@@ -1,18 +1,17 @@
 import { PrismaClient, User } from '@prisma/client';
 const prisma = new PrismaClient();
-import { RequestHandler } from 'express';
-import token from '@util/token';
-import cookieUtil from '../util/cookie';
-import { kakaoTokenRefreshRes } from '@auth/auth.type';
-import axios from 'axios';
-import qs from 'qs';
-import { KakaoUserInfo } from '@customType/kakaoRes';
 import { add } from 'date-fns';
+import { RequestHandler } from 'express';
+
+import token from '@/util/token';
+import cookieUtil from '@/util/cookie';
+import { kakaoTokenRefreshRes } from '@/auth/auth.type';
+import { KakaoUserInfo } from '@/types/kakaoRes';
+
 import refreshKakaoToken from 'src/api/kakao/refreshKakaoToken';
 import getKakaoUser from 'src/api/kakao/getKakaoUser';
 
 const isDev = process.env.IS_OFFLINE;
-const { KAKAO_REST_API_KEY } = process.env;
 
 export const authFunc: RequestHandler = async (req, res, next) => {
   const cookie = req.cookies['refresh_jwt'];
@@ -73,10 +72,10 @@ export const authFunc: RequestHandler = async (req, res, next) => {
     try {
       user = await prisma.user.upsert({
         where: {
-          kakaoId: kakaoUserInfo.id,
+          kakaoId: BigInt(kakaoUserInfo.id),
         },
         create: {
-          kakaoId: kakaoUserInfo.id,
+          kakaoId: BigInt(kakaoUserInfo.id),
           name: kakaoUserInfo.properties?.nickname || null,
           createdAt: new Date(),
           updatedAt: new Date(),

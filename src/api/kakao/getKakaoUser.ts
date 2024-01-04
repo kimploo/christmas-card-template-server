@@ -1,7 +1,4 @@
-import axios from 'axios';
-import QueryString from 'qs';
 import kakaoAxios from '../base';
-const { KAKAO_REST_API_KEY } = process.env;
 
 interface Params {
   access_token: string;

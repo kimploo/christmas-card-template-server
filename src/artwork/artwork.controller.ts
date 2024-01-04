@@ -1,7 +1,9 @@
+import { DefaultResDTO } from '@/types/dto';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 import { Request, Response } from 'express';
+import { ArtworkWithInfos } from './dto/getArtwork.dto';
 
 const getPageStartEnd = (limit: number, page: number) => {
   const pageStart = (page - 1) * limit;
@@ -10,9 +12,9 @@ const getPageStartEnd = (limit: number, page: number) => {
 };
 
 export default {
-  findMany: async (req: Request, res: Response) => {
+  findMany: async (req: Request, res: Response<DefaultResDTO<ArtworkWithInfos[], string>>) => {
     const { limit, page } = req.query;
-    if (!limit || !page) return res.status(400).send('should have pagination parameter');
+    if (!limit || !page) return res.status(400).send({ error: 'not found' });
 
     const { pageStart, pageEnd } = getPageStartEnd(Number(limit), Number(page));
     const result = await prisma.artwork.findMany({
@@ -24,6 +26,6 @@ export default {
       take: pageEnd,
     });
 
-    return res.json(result);
+    return res.json({ data: result });
   },
 };
