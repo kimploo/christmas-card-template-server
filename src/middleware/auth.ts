@@ -27,7 +27,7 @@ export const authFunc: RequestHandler = async (req, res, next) => {
   const oldRefreshToken = decoded.refresh_token;
   let user: User | null;
   try {
-    user = await prisma.user.findFirst({
+    user = await prisma.user.findUnique({
       where: {
         kakaoRefreshToken: oldRefreshToken,
       },
@@ -38,6 +38,15 @@ export const authFunc: RequestHandler = async (req, res, next) => {
   } catch (e) {
     console.error('유저 토큰 find 에러', e);
     return res.status(400).json(e);
+  }
+
+  // 헤더 검증
+  const authHeader = req.get('Authorization');
+  const isAuthorizedHeader = authHeader && authHeader === `Bearer ${user.kakaoAccessToken}`;
+
+  // 헤더가 있는지, 맞는지 검사
+  if (!isAuthorizedHeader) {
+    return res.status(401).send('Unauthorized');
   }
 
   // expired 아닌 경우 다시 재발행하지 않음
@@ -117,14 +126,5 @@ export const authFunc: RequestHandler = async (req, res, next) => {
     });
   }
 
-  // 헤더 검증
-  const authHeader = req.get('Authorization');
-
-  // 헤더가 있는지, 맞는지 검사
-  if (authHeader && authHeader === `Bearer ${user.kakaoAccessToken}`) {
-    // If the authorization is correct, call the next middleware/function
-    return next();
-  } else {
-    return res.status(401).send('Unauthorized');
-  }
+  return next();
 };

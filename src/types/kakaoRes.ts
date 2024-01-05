@@ -1,5 +1,5 @@
 export interface KakaoLogoutSuccessRes {
-  id: bigint;
+  id: number | bigint;
 }
 
 export interface KakaoLogoutUnauthorizedRes {
@@ -17,7 +17,7 @@ export interface KakaoTokenRes {
 }
 
 export interface KakaoUserInfo {
-  id: number;
+  id: number | bigint;
   connected_at: string;
   properties: {
     nickname: string | null;
