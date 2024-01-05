@@ -22,7 +22,7 @@ export default {
   login: async (req: Request, res: Response) => {
     // cct 서버의 토큰이 적절하지 않을 때
     const serviceRefreshToken = req.cookies['refresh_jwt'];
-    console.log(req.cookies);
+    console.log('[auth/login]', 'req.cookies', req.cookies);
     const decoded = token.verifyToken('refresh', serviceRefreshToken);
     if (!decoded || typeof decoded === 'string') {
       cookieUtil.clear(res);
@@ -42,72 +42,99 @@ export default {
         throw new Error('user not found');
       }
     } catch (e) {
-      console.error('유저 토큰 find 에러', e);
+      console.error('[auth/login]', '유저 토큰 find 에러', e);
       return res.status(400).json(e);
     }
+
+    const isTokenExpired =
+      user.kakaoAccessTokenExpiresOn &&
+      user.kakaoRefreshTokenExpiresOn &&
+      user.kakaoAccessTokenExpiresOn < new Date() &&
+      user.kakaoRefreshTokenExpiresOn < new Date();
 
     // 카카오 토큰 재발행
-    let kakaoTokenRefreshRes: kakaoTokenRefreshRes;
-    try {
-      kakaoTokenRefreshRes = (
-        await refreshKakaoToken({
-          refresh_token: oldRefreshToken,
-        })
-      ).data;
-    } catch (e) {
-      console.error('유저 토큰 재발행 에러', e);
-      return res.status(400).json(e);
-    }
+    // TODO: better variable name -> 꼭 Res가 아닐 수 있기 때문
+    let kakaoTokenRefreshRes: kakaoTokenRefreshRes | null = null;
+    if (isTokenExpired) {
+      try {
+        kakaoTokenRefreshRes = (
+          await refreshKakaoToken({
+            refresh_token: oldRefreshToken,
+          })
+        ).data;
+      } catch (e) {
+        console.error('[auth/login]', '유저 토큰 재발행 에러', e);
+        return res.status(400).json(e);
+      }
 
-    const { access_token, expires_in, refresh_token, refresh_token_expires_in } = kakaoTokenRefreshRes;
-    const isRefreshed = Boolean(refresh_token);
-    console.log('kakaoTokenRefreshRes', kakaoTokenRefreshRes);
+      if (!kakaoTokenRefreshRes) {
+        console.error('[auth/login]', '유저 토큰 재발행 에러 kakaoTokenRefreshRes:', kakaoTokenRefreshRes);
+        return res.status(400).json({ error: 'bad request' });
+      }
+
+      const { access_token, expires_in, refresh_token, refresh_token_expires_in } = kakaoTokenRefreshRes;
+      const isRefreshed = Boolean(refresh_token);
+      console.log('[auth/login]', 'kakaoTokenRefreshRes', kakaoTokenRefreshRes);
+
+      // 카카오 유저 정보 재확인
+      let kakaoUserInfo: KakaoUserInfo;
+      try {
+        kakaoUserInfo = (await getKakaoUser({ access_token })).data;
+      } catch (e) {
+        console.error('사용자 정보 받기 에러', e);
+        return res.status(400).json(e);
+      }
+      console.log('[auth/login]', '카카오 유저 정보 재확인: kakaoUserInfo', kakaoUserInfo);
+
+      // 토큰 갱신
+      try {
+        user = await prisma.user.update({
+          where: {
+            kakaoId: BigInt(kakaoUserInfo.id),
+          },
+          data: {
+            name: kakaoUserInfo.properties?.nickname || null,
+            kakaoAccessToken: access_token,
+            kakaoAccessTokenExpiresOn: add(new Date(), { seconds: expires_in }),
+            kakaoRefreshToken: !isRefreshed ? undefined : refresh_token,
+            kakaoRefreshTokenExpiresOn: !isRefreshed
+              ? undefined
+              : add(new Date(), { seconds: refresh_token_expires_in }),
+          },
+        });
+      } catch (e) {
+        console.error('[auth/login]', '유저 생성 에러', e);
+        return res.status(400).json(e);
+      }
+    }
 
     // 카카오 유저 정보 재확인
     let kakaoUserInfo: KakaoUserInfo;
     try {
-      kakaoUserInfo = (await getKakaoUser({ access_token })).data;
+      if (!user.kakaoAccessToken) {
+        console.error('[auth/login]', '유저 Access Token이 없습니다.', user);
+        return res.status(400).json({ error: 'bad request' });
+      }
+      kakaoUserInfo = (await getKakaoUser({ access_token: user.kakaoAccessToken })).data;
     } catch (e) {
-      console.error('사용자 정보 받기 에러', e);
+      console.error('[auth/login]', '사용자 정보 받기 에러', e);
       return res.status(400).json(e);
     }
-    console.log('여기가 id값이 바뀐다구요 ..?', kakaoUserInfo);
-
-    // 토큰 갱신
-    try {
-      user = await prisma.user.update({
-        where: {
-          kakaoId: BigInt(kakaoUserInfo.id),
-        },
-        data: {
-          name: kakaoUserInfo.properties?.nickname || null,
-          kakaoAccessToken: access_token,
-          kakaoAccessTokenExpiresOn: add(new Date(), { seconds: expires_in }),
-          kakaoRefreshToken: !isRefreshed ? undefined : refresh_token,
-          kakaoRefreshTokenExpiresOn: !isRefreshed ? undefined : add(new Date(), { seconds: refresh_token_expires_in }),
-        },
-      });
-    } catch (e) {
-      console.error('유저 생성 에러', e);
-      return res.status(400).json(e);
-    }
+    console.log('[auth/login]', '카카오 유저 정보 재확인', kakaoUserInfo);
 
     // access 토큰은 Authorization 헤더로, refresh 토큰은 쿠키로 돌려준다.
-    console.log('왜 자꾸 리프레시가 undefined..', refresh_token, user);
-    const resCookie = {
-      ...kakaoUserInfo,
-      refresh_token: isRefreshed ? refresh_token : user.kakaoRefreshToken,
-    };
+    const refresh_token =
+      isTokenExpired && kakaoTokenRefreshRes ? kakaoTokenRefreshRes.refresh_token : user.kakaoRefreshToken;
+    const access_token =
+      isTokenExpired && kakaoTokenRefreshRes ? kakaoTokenRefreshRes.access_token : user.kakaoAccessToken;
+    console.log('[auth/login]', 'refresh_token', refresh_token);
+    console.log('[auth/login]', 'access_token', access_token);
 
-    const resBody = {
-      ...kakaoUserInfo,
-      access_token,
-    };
+    const resCookie = { ...kakaoUserInfo, refresh_token };
+    const resBody = { ...kakaoUserInfo, access_token };
 
     // 서비스 앱의 토큰 생성 및 전달
     const { appRefreshToken } = token.generateToken(resCookie, true);
-    console.log('여기서 리프레시 토큰이 갑자기 빠진다구요..?', resCookie, resBody, appRefreshToken);
-
     res.cookie('refresh_jwt', appRefreshToken, {
       domain,
       path: '/',
@@ -138,33 +165,35 @@ export default {
         },
       });
     } catch (e) {
-      console.error('유저 토큰 find 에러', e);
+      console.error('[auth/logout]', '유저 토큰 find 에러', e);
       return res.status(400).json(e);
     }
 
     if (!user) return res.status(404).json('Not Found');
 
     // 카카오 유저 정보 재확인
-    const access_token = user.kakaoAccessToken as string;
     let kakaoUserInfo: KakaoUserInfo;
     try {
-      kakaoUserInfo = (await getKakaoUser({ access_token })).data;
+      if (!user.kakaoAccessToken) {
+        console.error('[auth/logout]', '유저 Access Token이 없습니다.', user);
+        return res.status(400).json({ error: 'bad request' });
+      }
+      kakaoUserInfo = (await getKakaoUser({ access_token: user.kakaoAccessToken })).data;
     } catch (e) {
-      console.error('사용자 정보 받기 에러', e);
+      console.error('[auth/logout]', '사용자 정보 받기 에러', e);
       return res.status(400).json(e);
     }
-    console.log('여기가 id값이 바뀐다구요 ..? 로그아웃', kakaoUserInfo);
-    console.log('logout find user', user);
+    console.log('[auth/logout]', 'kakaoUserInfo', kakaoUserInfo);
+    console.log('[auth/logout]', 'logout find user', user);
 
     try {
-      await kakaoLogout({ access_token });
+      await kakaoLogout({ access_token: user.kakaoAccessToken });
     } catch (e) {
-      console.error('카카오 로그아웃 에러', e);
+      console.error('[auth/logout]', '카카오 로그아웃 에러', e);
       return res.status(400).json(e);
     }
 
     const kakaoId = BigInt(kakaoUserInfo.id);
-    console.log('kakaoId', kakaoId);
 
     try {
       user = await prisma.user.update({
@@ -179,16 +208,14 @@ export default {
           kakaoRefreshTokenExpiresOn: null,
         },
       });
-      console.log('user update ?', user);
+      console.log('[auth/logout]', 'logout user', user);
     } catch (e) {
-      console.error('user update error', e);
+      console.error('[auth/logout]', 'user update error', e);
       return res.status(400).json(e);
     }
 
-    if (refreshToken) {
-      cookieUtil.clear(res);
-    }
-    return res.status(205).send('Logged Out Successfully');
+    if (refreshToken) cookieUtil.clear(res);
+    return res.status(205).send({ data: 'Logged Out Successfully' });
   },
 
   auth: async (req: Request, res: Response) => {
@@ -199,10 +226,10 @@ export default {
     const redirect_uri = isDev ? new URL('/auth', SERVER_URI_DEV).href : new URL('/auth', SERVER_URI_PROD).href;
     const client_redirect_url = isDev ? CLIENT_URI_DEV : CLIENT_URI_PROD;
 
-    console.log('code?', code);
-    console.log('kakao?', KAKAO_REST_API_KEY);
-    console.log('redirect_uri?', redirect_uri);
-    console.log('client_redirect_uri?', client_redirect_url);
+    console.log('[auth]', 'code?', code);
+    console.log('[auth]', 'kakao?', KAKAO_REST_API_KEY);
+    console.log('[auth]', 'redirect_uri?', redirect_uri);
+    console.log('[auth]', 'client_redirect_uri?', client_redirect_url);
 
     // 카카오 인증 서버에서 받은 code로 토큰 생성
     let kakaoRes: KakaoTokenRes;
@@ -214,7 +241,7 @@ export default {
         })
       ).data;
     } catch (e) {
-      console.error('토큰 받기 에러', e);
+      console.error('[auth]', '토큰 받기 에러', e);
       return res.status(400).json(e);
     }
 
@@ -225,11 +252,11 @@ export default {
     try {
       kakaoUserInfo = (await getKakaoUser({ access_token })).data;
     } catch (e) {
-      console.error('사용자 정보 받기 에러', e);
+      console.error('[auth]', '사용자 정보 받기 에러', e);
       return res.status(400).json(e);
     }
 
-    console.log('check kakaoid', kakaoUserInfo);
+    console.log('[auth]', 'check kakaoid', kakaoUserInfo);
     let user;
     // 카카오 ID와 일치하는 유저가 없으면 생성하고 있으면 토큰 갱신 (회원가입)
     try {
@@ -257,7 +284,7 @@ export default {
         },
       });
     } catch (e) {
-      console.error('유저 생성 에러', e);
+      console.error('[auth]', '유저 생성 에러', e);
       return res.status(400).json(e);
     }
 
